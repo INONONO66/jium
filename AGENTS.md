@@ -15,10 +15,10 @@ Jium is an ambient proactive UI agent. Preserve this product direction in every 
 ```txt
 apps/agent ──MCP──→ services/ggui
            ──MCP──→ services/api-gateway
-           ──MCP──→ services/user-context (planned)
+           ──MCP──→ services/user-context
 
 apps/web ──HTTP──→ apps/agent
-services/audio ──internal API──→ services/user-context (planned)
+services/audio ──HTTP──→ services/user-context
 ```
 
 ## Development rules
