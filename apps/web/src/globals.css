@@ -1,7 +1,7 @@
 /* Mobile fullscreen shell.
  *
  * CSS variables sourced from `@ggui-ai/design` tokens via `<ThemeProvider>`
- * in `main.tsx`. The provider injects `--ggui-color-*` etc. on `:root`;
+ * in `App.tsx`. The provider injects `--ggui-color-*` etc. on `:root`;
  * the rules below reference those so the shell shares one design language
  * with every generated iframe.
  *
