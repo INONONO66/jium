@@ -37,7 +37,7 @@ pnpm install
 pnpm dev
 ```
 
-`pnpm dev` starts the currently runnable surface: `services/ggui`, `services/api-gateway`, `apps/agent`, and `apps/web`.
+`pnpm dev` starts the currently runnable surface: `services/ggui`, `services/api-gateway`, `services/user-context`, `apps/agent`, and `apps/web`.
 
 ## Direction
 

@@ -1,10 +1,15 @@
 import type {
+  AmbientContextEvent,
+  ListRecentContextEventsOptions,
   CalendarEvent,
   CurrentUserContext,
   UserPreferences,
   UserProfile,
   UserSession,
 } from './types.js';
+
+const DEFAULT_MAX_EVENTS = 500;
+const MAX_RECENT_LIMIT = 50;
 
 export interface UserContextStore {
   getCurrent(input: { readonly userId: string; readonly sessionId: string }): CurrentUserContext;
@@ -31,13 +36,21 @@ export interface UserContextStore {
     readonly sessionId: string;
     readonly patch: { readonly currentContext?: Record<string, unknown> };
   }): UserSession;
+  recordAmbientAudioContext(event: AmbientContextEvent): AmbientContextEvent;
+  listRecentContextEvents(options?: ListRecentContextEventsOptions): AmbientContextEvent[];
 }
 
-export function createUserContextStore(): UserContextStore {
+export interface UserContextStoreOptions {
+  readonly maxEvents?: number;
+}
+
+export function createUserContextStore(options: UserContextStoreOptions = {}): UserContextStore {
   const profiles = new Map<string, UserProfile>();
   const preferences = new Map<string, UserPreferences>();
   const calendars = new Map<string, Map<string, CalendarEvent>>();
   const sessions = new Map<string, UserSession>();
+  const contextEvents: AmbientContextEvent[] = [];
+  const maxEvents = options.maxEvents ?? DEFAULT_MAX_EVENTS;
 
   const getProfile = (userId: string): UserProfile => {
     const existing = profiles.get(userId);
@@ -144,5 +157,21 @@ export function createUserContextStore(): UserContextStore {
       sessions.set(getSessionKey(input.userId, input.sessionId), updated);
       return updated;
     },
+
+    recordAmbientAudioContext(event) {
+      contextEvents.push(event);
+      if (contextEvents.length > maxEvents) contextEvents.splice(0, contextEvents.length - maxEvents);
+      return event;
+    },
+
+    listRecentContextEvents(options = {}) {
+      const limit = clampRecentLimit(options.limit);
+      return [...contextEvents].sort((a, b) => b.timestamp.localeCompare(a.timestamp)).slice(0, limit);
+    },
   };
+}
+
+function clampRecentLimit(limit: number | undefined): number {
+  if (limit === undefined || !Number.isFinite(limit)) return 20;
+  return Math.min(MAX_RECENT_LIMIT, Math.max(1, Math.trunc(limit)));
 }

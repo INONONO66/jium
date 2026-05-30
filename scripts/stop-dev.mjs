@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { execFileSync } from 'node:child_process';
 
-// ggui, api-gateway, future user-context/audio, agent/sandbox proxy, web.
+// ggui, api-gateway, user-context, future audio, agent/sandbox proxy, web.
 const PORTS = [6781, 6783, 6784, 6785, 6791, 7791, 6890];
 let freed = 0;
 

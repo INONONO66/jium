@@ -19,11 +19,12 @@ describe('S3: MCP tool exposure', () => {
   it('defines an output schema for every user-context tool', async () => {
     const { USER_CONTEXT_TOOL_DEFINITIONS } = await import('../handlers.js');
 
-    expect(USER_CONTEXT_TOOL_DEFINITIONS).toHaveLength(7);
+    expect(USER_CONTEXT_TOOL_DEFINITIONS).toHaveLength(8);
     expect(USER_CONTEXT_TOOL_DEFINITIONS.map((tool) => tool.name).sort()).toEqual([
       'get_calendar_window',
       'get_current',
       'get_session',
+      'list_recent_context',
       'update_preferences',
       'update_profile',
       'update_session',

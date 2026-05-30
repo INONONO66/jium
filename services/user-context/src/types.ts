@@ -35,3 +35,27 @@ export interface CurrentUserContext {
   };
   readonly session: UserSession;
 }
+
+export type AmbientContextImportance = 'low' | 'medium' | 'high';
+
+export interface AudioTranscriptChunk {
+  readonly id: string;
+  readonly text: string;
+  readonly startedAt: string;
+  readonly endedAt?: string;
+  readonly source?: string;
+}
+
+export interface AmbientContextEvent {
+  readonly id: string;
+  readonly type: 'ambient_audio_context';
+  readonly timestamp: string;
+  readonly importance: AmbientContextImportance;
+  readonly summary: string;
+  readonly rawTranscript: AudioTranscriptChunk;
+  readonly suggestedActions?: readonly string[];
+}
+
+export interface ListRecentContextEventsOptions {
+  readonly limit?: number;
+}
