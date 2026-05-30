@@ -13,6 +13,7 @@
     "dev": "node scripts/dev.mjs",
     "dev:ggui": "dotenv -e .env.local -- pnpm --filter ./services/ggui start:dev",
     "dev:api-gateway": "dotenv -e .env.local -- pnpm --filter ./services/api-gateway dev",
+    "dev:user-context": "dotenv -e .env.local -- pnpm --filter ./services/user-context dev",
     "dev:agent": "dotenv -e .env.local -- pnpm --filter ./apps/agent dev",
     "dev:web": "pnpm --filter ./apps/web dev",
     "dev:stop": "node scripts/stop-dev.mjs",
