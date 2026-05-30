@@ -4,7 +4,8 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { registerCoreTools } from './handlers.js';
-import { initApiFuseClient, closeClient } from './apifuse-mcp-client.js';
+import { configureApiGatewayCore, initApiFuseClient, closeClient } from '@jium/api-gateway-core';
+import { readApiGatewayCoreConfig } from './config.js';
 
 function parsePort(): number {
   const argIdx = process.argv.indexOf('--port');
@@ -22,6 +23,8 @@ function parsePort(): number {
 
 async function main(): Promise<void> {
   const port = parsePort();
+
+  configureApiGatewayCore(readApiGatewayCoreConfig());
 
   try {
     await initApiFuseClient();
@@ -76,7 +79,7 @@ async function handleRequest(
     }
 
     const mcp = new McpServer({
-      name: '@jium-app/mcp-core',
+      name: '@jium/api-gateway',
       version: '0.1.0',
       description: 'Unified Korean API gateway — API Fuse (125 ops) + Swing mobility. search/get_schema/execute/batch.',
     });

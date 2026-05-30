@@ -10,6 +10,7 @@
  * Rate limits: taxi ETA 30/min, vehicles 60/min
  */
 import type { SearchResult } from './schemas.js';
+import { getApiGatewayCoreConfig } from './config.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -83,33 +84,14 @@ class RateLimiter {
 const taxiRateLimiter = new RateLimiter(30);
 const vehicleRateLimiter = new RateLimiter(60);
 
-// ---------------------------------------------------------------------------
-// Config
-// ---------------------------------------------------------------------------
-
-function getConfig(): { baseUrl: string; apiKey: string } {
-  const baseUrl = process.env.SWING_BASE_URL;
-  if (!baseUrl) {
-    throw new Error(
-      'SWING_BASE_URL environment variable is required. ' +
-      'Example: https://stage.playground.endpoint.swingmobility.dev',
-    );
-  }
-  const apiKey = process.env.SWING_API_KEY;
-  if (!apiKey) {
-    throw new Error('SWING_API_KEY environment variable is required.');
-  }
-  return { baseUrl: baseUrl.replace(/\/+$/, ''), apiKey };
-}
-
 async function swingFetch<T>(path: string, body: unknown): Promise<T> {
-  const { baseUrl, apiKey } = getConfig();
-  const url = `${baseUrl}${path}`;
+  const { swingBaseUrl, swingApiKey } = getApiGatewayCoreConfig();
+  const url = `${swingBaseUrl}${path}`;
 
   const response = await fetch(url, {
     method: 'POST',
     headers: {
-      'X-API-KEY': apiKey,
+      'X-API-KEY': swingApiKey,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(body),

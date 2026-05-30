@@ -1,10 +1,16 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { routeOperation } from './router.js';
-import { executeBatch } from './pool.js';
-import { searchTools, getToolSchema } from './apifuse-mcp-client.js';
-import { getSwingCapabilities, getSwingSchema, isSwingTool } from './swing-client.js';
-import type { SearchResult, ToolAction } from './schemas.js';
+import {
+  executeBatch,
+  getSwingCapabilities,
+  getSwingSchema,
+  getToolSchema,
+  isSwingTool,
+  routeOperation,
+  searchTools,
+  type SearchResult,
+  type ToolAction,
+} from '@jium/api-gateway-core';
 
 // API Fuse search only understands English queries — map Korean keywords
 const KO_EN_MAP: Array<[RegExp, string]> = [

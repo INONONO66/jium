@@ -1,12 +1,9 @@
 {
-  "name": "@jium-app/mcp-core",
+  "name": "@jium/api-gateway",
   "version": "0.0.1",
-  "description": "Batch API orchestration MCP server — routes operations to API Fuse (passthrough) or mobility stubs, with bounded-concurrency parallel execution.",
+  "description": "Jium API gateway MCP service for API Fuse and Swing mobility tools.",
   "private": true,
   "type": "module",
-  "bin": {
-    "jium-mcp-core": "./dist/index.js"
-  },
   "scripts": {
     "start": "tsx src/index.ts",
     "dev": "tsx watch src/index.ts",
@@ -16,6 +13,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@jium/api-gateway-core": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.21.0",
     "zod": "^4.0.0"
   },

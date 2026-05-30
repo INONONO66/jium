@@ -1,0 +1,26 @@
+{
+  "name": "@jium/api-gateway-core",
+  "version": "0.0.1",
+  "description": "Reusable API gateway schemas, routers, clients, and batch execution for Jium services.",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -b --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "zod": "^4.0.0",
+    "@modelcontextprotocol/sdk": "^1.21.0",
+    "eventsource-parser": "^3.0.6"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.0.0",
+    "vitest": "^3.2.0"
+  }
+}

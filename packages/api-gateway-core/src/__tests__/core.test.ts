@@ -3,21 +3,22 @@ import { executeBatch } from '../pool.js';
 import { routeOperation } from '../router.js';
 import { getSwingCapabilities, getSwingSchema, isSwingTool } from '../swing-client.js';
 import type { ToolAction, ActionResult } from '../schemas.js';
+import { configureApiGatewayCore } from '../config.js';
 
 const mockFetch = vi.fn();
 
 beforeEach(() => {
   vi.stubGlobal('fetch', mockFetch);
-  process.env.APIFUSE_API_KEY = 'test-api-key-123';
-  process.env.SWING_BASE_URL = 'https://test.swing.dev';
-  process.env.SWING_API_KEY = 'test-swing-key';
+  configureApiGatewayCore({
+    apiFuseApiKey: 'test-api-key-123',
+    apiFuseMcpUrl: 'https://api.apifuse.com/mcp',
+    swingBaseUrl: 'https://test.swing.dev',
+    swingApiKey: 'test-swing-key',
+  });
 });
 
 afterEach(() => {
   vi.unstubAllGlobals();
-  delete process.env.APIFUSE_API_KEY;
-  delete process.env.SWING_BASE_URL;
-  delete process.env.SWING_API_KEY;
   mockFetch.mockReset();
 });
 
@@ -30,14 +31,6 @@ function mockFetchSuccess(data: unknown) {
   });
 }
 
-function mockFetchError(status: number, body: string) {
-  mockFetch.mockResolvedValueOnce({
-    ok: false,
-    status,
-    statusText: 'Error',
-    text: async () => body,
-  });
-}
 
 describe('S1: Batch legacy apifuse REST — 3 ops fulfilled in order', () => {
   it('should execute 3 apifuse.* operations via REST fallback', async () => {
@@ -211,20 +204,6 @@ describe('S6: Empty batch', () => {
   });
 });
 
-describe('S7: MCP tool exposure — 4 tools discoverable', () => {
-  it('should register all four tools without throwing', async () => {
-    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js');
-    const { registerCoreTools } = await import('../handlers.js');
-
-    const server = new McpServer({
-      name: '@jium-app/mcp-core',
-      version: '0.1.0',
-    });
-
-    registerCoreTools(server);
-    expect(server).toBeDefined();
-  });
-});
 
 describe('Swing client utilities', () => {
   it('getSwingCapabilities returns 2 tools', () => {

@@ -12,6 +12,7 @@
  */
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
+import { getApiGatewayCoreConfig } from './config.js';
 
 // ---------------------------------------------------------------------------
 // Cache
@@ -61,17 +62,6 @@ const searchCache = new TtlCache<unknown[]>(SEARCH_TTL);
 
 let client: Client | null = null;
 
-function getConfig(): { mcpUrl: string; apiKey: string } {
-  const mcpUrl = process.env.APIFUSE_MCP_URL ?? 'https://api.apifuse.com/mcp';
-  const apiKey = process.env.APIFUSE_API_KEY;
-  if (!apiKey) {
-    throw new Error(
-      'APIFUSE_API_KEY environment variable is required. ' +
-      'Get one at https://platform.apifuse.com/login',
-    );
-  }
-  return { mcpUrl, apiKey };
-}
 
 /**
  * Initialize the API Fuse MCP client. Call once at server startup.
@@ -80,14 +70,14 @@ function getConfig(): { mcpUrl: string; apiKey: string } {
 export async function initApiFuseClient(): Promise<void> {
   if (client) return;
 
-  const { mcpUrl, apiKey } = getConfig();
+  const { apiFuseMcpUrl, apiFuseApiKey } = getApiGatewayCoreConfig();
 
   const transport = new StreamableHTTPClientTransport(
-    new URL(mcpUrl),
+    new URL(apiFuseMcpUrl),
     {
       requestInit: {
         headers: {
-          'Authorization': `Bearer ${apiKey}`,
+          'Authorization': `Bearer ${apiFuseApiKey}`,
         },
       },
     },
@@ -100,7 +90,7 @@ export async function initApiFuseClient(): Promise<void> {
 
   await client.connect(transport);
   // eslint-disable-next-line no-console
-  console.log(`[mcp-core] API Fuse MCP client connected to ${mcpUrl}`);
+  console.log(`[mcp-core] API Fuse MCP client connected to ${apiFuseMcpUrl}`);
 }
 
 function requireClient(): Client {

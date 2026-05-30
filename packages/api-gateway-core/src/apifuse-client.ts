@@ -8,18 +8,9 @@
  * Response: { data, meta, pagination? }
  */
 
-const APIFUSE_BASE_URL = 'https://api.apifuse.com/v1';
+import { getApiGatewayCoreConfig } from './config.js';
 
-function getApiKey(): string {
-  const key = process.env.APIFUSE_API_KEY;
-  if (!key) {
-    throw new Error(
-      'APIFUSE_API_KEY environment variable is required. ' +
-      'Get one at https://platform.apifuse.com/login',
-    );
-  }
-  return key;
-}
+const APIFUSE_BASE_URL = 'https://api.apifuse.com/v1';
 
 export interface ApiFuseResponse {
   readonly data: unknown;
@@ -42,11 +33,11 @@ export async function executeApiFuse(
   params?: Record<string, unknown>,
   connectionId?: string,
 ): Promise<unknown> {
-  const apiKey = getApiKey();
+  const { apiFuseApiKey } = getApiGatewayCoreConfig();
   const url = `${APIFUSE_BASE_URL}/${encodeURIComponent(providerId)}/${encodeURIComponent(operationId)}`;
 
   const headers: Record<string, string> = {
-    'Authorization': `Bearer ${apiKey}`,
+    'Authorization': `Bearer ${apiFuseApiKey}`,
     'Content-Type': 'application/json',
   };
   if (connectionId) {
