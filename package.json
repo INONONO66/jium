@@ -14,6 +14,7 @@
     "dev:ggui": "dotenv -e .env.local -- pnpm --filter ./servers/ggui start",
     "dev:mcps": "pnpm --parallel --filter \"./servers/mcps/*\" run dev",
     "dev:todo": "pnpm --filter ./servers/mcps/todo dev",
+    "dev:core": "dotenv -e .env.local -- pnpm --filter ./servers/mcps/core dev",
     "dev:agent": "dotenv -e .env.local -- pnpm --filter ./servers/agent dev",
     "dev:web": "pnpm --filter ./apps/web dev",
     "dev:stop": "node scripts/stop-dev.mjs",
