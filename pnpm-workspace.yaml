@@ -4,6 +4,9 @@ packages:
   - "packages/*"
   - "vendor/ggui/*"
 
+overrides:
+  '@ggui-ai/ui-gen': workspace:*
+
 verifyDepsBeforeRun: false
 strictDepBuilds: false
 autoInstallPeers: true
