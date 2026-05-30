@@ -4,24 +4,24 @@
  *
  * Env vars consumed here:
  *
- *   PORT                Chat backend HTTP port (default 6791)
+ *   PORT                Agent backend HTTP port (default 6791)
  *   SANDBOX_PROXY_PORT  Spec-mandated second-origin sandbox port (default 7791)
  *   GGUI_MCP_URL        Primary ggui MCP endpoint
  *                       (default http://localhost:6781/mcp)
- *   GGUI_TODO_MCP_URL   Optional second MCP for domain tools (todo demo).
+ *   GGUI_API_GATEWAY_MCP_URL   Optional second MCP for domain tools (API gateway).
  *                       Omitted by default — the agent runs ggui-only.
  *   OPENAI_MODEL        Override the default OpenAI model
  *                       (default `gpt-5.5-2026-04-23` — see agent.ts)
  *   SYSTEM_PROMPT       Override the default ggui-agent system prompt.
  *                       Set to `none` to disable entirely.
- *   OPENAI_API_KEY      Required. The agent fails-fast on first `/chat`
+ *   OPENAI_API_KEY      Required. The agent fails-fast on first `/agent`
  *                       if absent (see agent.ts).
  *
- * Adding another MCP server: one entry below + one env var.
+ * Adding another MCP server only requires a `GGUI_<NAME>_MCP_URL` env var.
  *
  * Auto-loads `.env.local` walking up from this file, so a workspace-
  * root `.env.local` is picked up without explicit sourcing. External
- * devs cloning the sample drop their `.env.local` next to package.json
+ * devs cloning Jium drop their `.env.local` next to package.json
  * and it's found the same way.
  */
 import { existsSync } from 'node:fs';
@@ -47,7 +47,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const envPath = findEnvLocal(here);
 if (envPath) {
   loadDotenv({ path: envPath });
-  console.log(`[sample-agent] loaded ${envPath}`);
+  console.log(`[jium-agent] loaded ${envPath}`);
 }
 
 const PORT = Number(process.env.PORT ?? 6791);
@@ -67,7 +67,7 @@ const systemPrompt =
 // (the relay handlers in server.ts forward to it). Every *other* MCP is a
 // domain server discovered from the env: any `GGUI_<NAME>_MCP_URL` registers as
 // `<name>`, so adding an MCP server needs no change here — just the env var
-// (e.g. `GGUI_TODO_MCP_URL` → `todo`, `GGUI_ORDERS_MCP_URL` → `orders`).
+// (e.g. `GGUI_API_GATEWAY_MCP_URL` → `api_gateway`).
 const mcpServers: Record<string, McpServerConfig> = {
   ggui: { url: process.env.GGUI_MCP_URL ?? 'http://localhost:6781/mcp' },
 };
@@ -83,6 +83,6 @@ startServer({
   ...(MODEL ? { model: MODEL } : {}),
   ...(systemPrompt !== undefined ? { systemPrompt } : {}),
 }).catch((err: unknown) => {
-  console.error('[sample-agent] failed to start:', err);
+  console.error('[jium-agent] failed to start:', err);
   process.exit(1);
 });

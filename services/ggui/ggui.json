@@ -2,8 +2,8 @@
   "schema": "1",
   "protocol": "draft-2026-05-28",
   "app": {
-    "slug": "sample-ggui-default",
-    "name": "Sample ggui — default"
+    "slug": "jium-ggui",
+    "name": "Jium"
   },
   "generation": {
     "model": "openai:gpt-5.5"

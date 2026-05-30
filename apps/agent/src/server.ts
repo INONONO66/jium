@@ -1,5 +1,5 @@
 /**
- * OpenAI Agents SDK sample backend — `@ggui-ai/agent-server` wired
+ * Jium OpenAI Agents SDK backend — `@ggui-ai/agent-server` wired
  * to {@link createOpenAiAgentAdapter}.
  *
  * All HTTP / SSE / MCP routing / auth / chat ownership / tool-result
