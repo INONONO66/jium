@@ -41,4 +41,4 @@ pnpm dev
 
 ## Direction
 
-GGUI is currently used as the rendering/runtime loop, but Jium keeps it isolated: runtime config lives in `services/ggui`, and local fork patches belong under `vendor/ggui` only when needed. The long-term product direction is a Jium-native JSON UI renderer that keeps GGUI's contract-driven UI idea without depending on generated React code inside an iframe.
+GGUI is the rendering/runtime loop. Runtime config lives in `services/ggui`, and local fork patches belong under `vendor/ggui` only when needed.

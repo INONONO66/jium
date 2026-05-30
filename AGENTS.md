@@ -25,6 +25,6 @@ services/audio ──HTTP──→ services/user-context
 
 - Keep the user-facing surface more intuitive than chat wherever possible.
 - Prefer small, direct UI/action flows over generic text conversations.
-- Keep GGUI runtime concerns isolated so the future JSON UI renderer migration remains possible.
+- Keep GGUI runtime concerns isolated inside `services/ggui` and `vendor/ggui`.
 - Do not reintroduce sample `todo` tooling or template bootstrap docs.
 - Use `pnpm dev`, `pnpm typecheck`, and targeted package tests after structural changes.
