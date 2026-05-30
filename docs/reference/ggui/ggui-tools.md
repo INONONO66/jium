@@ -1,7 +1,7 @@
 # Reference — the `ggui_*` render tools
 
-> These are the MCP tools `servers/ggui` exposes. The agent discovers them via
-> the standard MCP handshake (zero glue in `servers/agent`) and the **tool
+> These are the MCP tools `services/ggui` exposes. The agent discovers them via
+> the standard MCP handshake (zero glue in `apps/agent`) and the **tool
 > descriptions themselves teach the agent how to use them** — you rarely think
 > about them directly. This is the map, for when you do.
 

@@ -1,7 +1,9 @@
 # 시나리오: 어느 직장인의 하루
 
+> Status: product target scenario. Endpoint examples describe the planned Jium-native JSON UI runtime, while the current runnable implementation still uses the GGUI-backed agent loop.
+
 > Jium이 하루 동안 사용자의 맥락을 읽고 선제적으로 UI를 띄우는 end-to-end 데모 시나리오.
-> 모든 요청/응답은 `servers/core`의 API 엔드포인트 기준으로 기술한다.
+> 모든 요청/응답은 `services/api-gateway`의 API 엔드포인트 기준으로 기술한다.
 
 ## 전제
 
@@ -10,7 +12,7 @@
 - 톤은 항상 `gentle_proactive` — 제안하지, 강제하지 않음
 - 모든 surface에는 dismiss 옵션이 있음
 
-## servers/core API 요약
+## services/api-gateway API 요약
 
 ```
 GET  /api/openapi.json          Operation Registry (planner/renderer가 참조)

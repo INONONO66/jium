@@ -131,7 +131,7 @@ Describes data required by the component tree.
 ```json
 {
   "properties": {
-    "todos": {
+    "quickActions": {
       "schema": {
         "type": "array",
         "items": {
@@ -159,7 +159,7 @@ Describes possible user gestures.
       },
       "required": ["text"]
     },
-    "nextStep": "todo.add"
+    "nextStep": "calendar.confirm"
   }
 }
 ```

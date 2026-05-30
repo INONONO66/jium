@@ -5,7 +5,7 @@
 > per-app **CSS variables** every generated surface renders against. Change the
 > theme and every screen restyles.
 
-Declared at **`servers/ggui/ggui.json#theme`**, which is a *pointer* — two forms.
+Declared at **`services/ggui/ggui.json#theme`**, which is a *pointer* — two forms.
 
 ## 1. A built-in preset (fastest)
 
@@ -23,13 +23,13 @@ Declared at **`servers/ggui/ggui.json#theme`**, which is a *pointer* — two for
 "theme": { "file": "./theme.json" }
 ```
 
-Point `ggui.json` at a **DTCG theme document** (path relative to `servers/ggui/`,
-or absolute). A ready-to-edit starter ships at **`.reference/theme.example.json`**:
+Point `ggui.json` at a **DTCG theme document** (path relative to `services/ggui/`,
+or absolute). A ready-to-edit starter ships at **`docs/reference/ggui/theme.example.json`**:
 
 ```bash
-cp .reference/theme.example.json servers/ggui/theme.json   # then edit color.primary
-pnpm --filter ./servers/ggui exec ggui theme validate ./theme.json   # check it
-# set servers/ggui/ggui.json#theme to { "file": "./theme.json" }
+cp docs/reference/ggui/theme.example.json services/ggui/theme.json   # then edit color.primary
+pnpm --filter ./services/ggui exec ggui theme validate ./theme.json   # check it
+# set services/ggui/ggui.json#theme to { "file": "./theme.json" }
 ```
 
 ### Token leaves
@@ -58,7 +58,7 @@ strict** — an unknown key fails validation (so it's a typo guard).
 > are no longer valid.)
 
 ### Easiest path
-Copy `.reference/theme.example.json`, change **`color.primary`** to your brand
+Copy `docs/reference/ggui/theme.example.json`, change **`color.primary`** to your brand
 scale (and `mode` colors if you like), `ggui theme validate` it, and point
 `ggui.json#theme` at it. Or just stick with a preset.
 

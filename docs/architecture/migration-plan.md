@@ -1,14 +1,16 @@
-# Migration Plan from GGUI Sample
+# GGUI Runtime Migration Plan
+
+> Status: future architecture target. The currently runnable local stack is `apps/web` + `apps/agent` + `services/ggui` + `services/api-gateway`; `/api/intent`, `/api/render`, and `/api/action` are planned Jium-native endpoints, not current runtime endpoints.
 
 ## Current State
 
-The scaffolded app uses:
+The current GGUI-backed runtime uses:
 
 ```txt
 apps/web              Vite SPA + @ggui-ai/react AppRenderer
-servers/agent         OpenAI Agents SDK sample backend
-servers/ggui          ggui serve MCP server
-servers/mcps/todo     sample MCP todo tool
+apps/agent         OpenAI Agents SDK backend
+services/ggui          ggui serve MCP server
+services/api-gateway     API Fuse + Swing MCP gateway
 ```
 
 This path was useful for validating GGUI concepts, but it should not remain the product architecture.
@@ -28,7 +30,7 @@ apps/web
   AmbientHome
   Mic/STT capture
 
-servers/core
+services/api-gateway
   intent engine
   UI planner
   OpenAPI action router
@@ -105,7 +107,7 @@ Renderer requirements:
 
 ## Phase 3: Introduce Core Server
 
-Add `servers/core`:
+Add `services/api-gateway`:
 
 ```txt
 src/index.ts
@@ -148,7 +150,7 @@ MCP tools/call relay
 After the Jium-native loop works, optionally add:
 
 ```txt
-servers/mcp-adapter
+services/mcp-adapter
 ```
 
 This adapter maps Jium operations to MCP tools. It should be optional, not core.

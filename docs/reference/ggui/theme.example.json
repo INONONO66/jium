@@ -1,6 +1,6 @@
 {
   "$name": "Brand starter",
-  "$description": "Starter ggui theme (DTCG). Copy to servers/ggui/theme.json, change color.primary to your brand, then point ggui.json#theme at it: { \"file\": \"./theme.json\" }. Validate with: pnpm --filter ./servers/ggui exec ggui theme validate ./theme.json",
+  "$description": "Starter ggui theme (DTCG). Copy to services/ggui/theme.json, change color.primary to your brand, then point ggui.json#theme at it: { \"file\": \"./theme.json\" }. Validate with: pnpm --filter ./services/ggui exec ggui theme validate ./theme.json",
   "color": {
     "primary": {
       "50":  { "$type": "color", "$value": "#eef2ff" },

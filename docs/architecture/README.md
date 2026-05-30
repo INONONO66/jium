@@ -11,7 +11,7 @@ render lifecycle을 흡수하고, 실행부는 Jium에 맞게 단순화한다.
 - [GGUI-derived JSON UI Engine](./ggui-json-ui-engine.md)
 - [UI Spec and Component Vocabulary](./ui-spec.md)
 - [OpenAPI Action Router](./openapi-action-router.md)
-- [Migration Plan from GGUI Sample](./migration-plan.md)
+- [GGUI Runtime Migration Plan](./migration-plan.md)
 
 ## One-line Philosophy
 

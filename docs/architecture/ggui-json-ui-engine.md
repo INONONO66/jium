@@ -1,5 +1,7 @@
 # GGUI-derived JSON UI Engine
 
+> Status: target architecture. Use this to guide the future JSON UI renderer migration; it is not the current runtime surface.
+
 ## Goal
 
 Jium은 사용자의 음성/대화 맥락에서 필요한 UI를 선제적으로 띄우는 Ambient Proactive UI Agent다.

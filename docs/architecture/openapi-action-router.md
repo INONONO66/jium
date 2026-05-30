@@ -1,5 +1,7 @@
 # OpenAPI Action Router
 
+> Status: planned Jium-native runtime boundary. The current runnable stack still routes through `apps/agent` and GGUI MCP services.
+
 ## Purpose
 
 The Action Router replaces GGUI's full MCP action relay for Jium's product path.
