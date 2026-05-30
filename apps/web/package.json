@@ -1,7 +1,7 @@
 {
-  "name": "@jium-app/app-ggui-basic-web",
+  "name": "@jium/web",
   "version": "0.0.1",
-  "description": "Reference Vite-SPA frontend for any MCP-Apps-spec agent backend that mounts ggui renders. Consumes @ggui-ai/react's <AppRenderer> + useMcpAppsChat hook. Talks to a brand-agnostic agent server (claude-agent-sdk / openai-agents-sdk / google-adk) via VITE_AGENT_ENDPOINT_URL. Not published.",
+  "description": "Jium fullscreen web shell for ambient proactive UI surfaces.",
   "private": true,
   "type": "module",
   "scripts": {

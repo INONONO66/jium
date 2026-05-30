@@ -9,10 +9,9 @@
  */
 interface ImportMetaEnv {
   /**
-   * MCP-Apps-spec agent backend base URL (e.g. `http://localhost:6790`).
-   * Drives the single `POST /agent` endpoint (chat + tool-call relay)
-   * and the `GET /` manifest. Optional — falls back to the e2e-harness
-   * default for `pnpm dev` without a `.env.local`.
+   * Jium agent backend base URL (e.g. `http://localhost:6791`).
+   * Drives the chat/relay endpoints and the `GET /` manifest. Optional —
+   * falls back to the local Jium agent for `pnpm dev` without `.env.local`.
    */
   readonly VITE_AGENT_ENDPOINT_URL?: string;
 }

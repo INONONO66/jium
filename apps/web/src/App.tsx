@@ -12,9 +12,9 @@ import { FullscreenShell } from './FullscreenShell';
  *   2. `VITE_AGENT_ENDPOINT_URL` env var (baked in at build time).
  *      Right for single-tenant deployments where the backend URL is
  *      known at build.
- *   3. The e2e harness default (claude-agent-sdk on 6790) so a developer
- *      running `pnpm dev` without `.env.local` still gets a working
- *      shell against a stock harness.
+ *   3. The Jium local agent default on 6791 so a developer
+ *      running `pnpm dev` without `.env.local` targets the included
+ *      OpenAI Agents backend.
  *
  * Resolved synchronously at module load. The query param is read once
  * and never re-read — switching backends requires a new page load
@@ -26,7 +26,7 @@ function resolveAgentEndpoint(): string {
     const fromUrl = new URL(window.location.href).searchParams.get('agent');
     if (fromUrl !== null && fromUrl.length > 0) return fromUrl;
   }
-  return import.meta.env.VITE_AGENT_ENDPOINT_URL ?? 'http://localhost:6790';
+  return import.meta.env.VITE_AGENT_ENDPOINT_URL ?? 'http://localhost:6791';
 }
 
 const AGENT_ENDPOINT = resolveAgentEndpoint();
@@ -41,7 +41,7 @@ const INDIGO_DARK = getRawTheme('indigo', 'dark');
 export function App() {
   // Sandbox-proxy URL read once from the agent backend's `GET /`
   // manifest on mount. `<AppRenderer>` mandates a second-origin sandbox
-  // host per MCP Apps spec; the sample backends auto-bind a
+  // host per MCP Apps spec; the Jium agent auto-binds a
   // `sandbox.html` server on `agent_port + 1000` and surface the URL as
   // the manifest's `sandboxProxyUrl` field.
   //

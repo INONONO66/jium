@@ -21,7 +21,7 @@ import { ToolCardStack } from './ToolCardStack';
 import { TextInputModal } from './TextInputModal';
 
 /**
- * The hook's drop-in `<AppRenderer onMessage>` handler. The sample
+ * The hook's drop-in `<AppRenderer onMessage>` handler. Jium
  * stays ggui-protocol-agnostic for the `ui/message` path — it forwards
  * the guest message verbatim through this handler; the agent-server
  * backend is the sole party that recognizes + guards any `ai.ggui/*`
@@ -42,7 +42,7 @@ type ShellMode = 'idle' | 'tooling' | 'generating' | 'presenting' | 'error';
 // localStorage keys for the guest-token flow. The token survives
 // reloads so a returning visitor lands on the same chats; the chatId
 // is URL-resident so cross-tab links land on the same conversation.
-const LS_GUEST_TOKEN = 'ggui-basic-web/guestToken';
+const LS_GUEST_TOKEN = 'jium-web/guestToken';
 const URL_CHAT_PARAM = 'chat';
 
 /**
@@ -103,7 +103,7 @@ export function FullscreenShell({ agentEndpoint, sandboxUrl }: FullscreenShellPr
         window.localStorage.setItem(LS_GUEST_TOKEN, fresh);
         setGuestTokenReady(true);
       } catch (err) {
-        console.warn('[Chat] guest-token mint failed', err);
+        console.warn('[Jium] guest-token mint failed', err);
         // Surface as "ready" anyway — requests will 401 + show error
         // entries; better than a permanent loading state.
         if (!cancelled) setGuestTokenReady(true);
@@ -133,7 +133,7 @@ export function FullscreenShell({ agentEndpoint, sandboxUrl }: FullscreenShellPr
       window.localStorage.setItem(LS_GUEST_TOKEN, fresh);
       return true;
     } catch (err) {
-      console.warn('[Chat] guest-token refresh failed', err);
+      console.warn('[Jium] guest-token refresh failed', err);
       return false;
     }
   }, [agentEndpoint]);
@@ -366,7 +366,7 @@ function ResourceFrame({
 
   // No local `ui/message` parsing: the hook's `handleAppMessage`
   // joins the text + forwards the content block's `_meta` opaquely.
-  // This sample stays ggui-protocol-agnostic — the agent-server backend
+  // Jium stays ggui-protocol-agnostic — the agent-server backend
   // is the sole party that recognizes + guards `ai.ggui/*` keys.
 
   return (
