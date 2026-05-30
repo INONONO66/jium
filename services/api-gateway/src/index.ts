@@ -1,11 +1,22 @@
 #!/usr/bin/env node
 /* eslint-disable no-console */
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
+import type { AddressInfo } from 'node:net';
+import { fileURLToPath } from 'node:url';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { registerCoreTools } from './handlers.js';
 import { configureApiGatewayCore, initApiFuseClient, closeClient } from '@jium/api-gateway-core';
 import { readApiGatewayCoreConfig } from './config.js';
+
+const DEFAULT_HOST = '127.0.0.1';
+const DEFAULT_MAX_BODY_BYTES = 64 * 1024;
+
+class BodyTooLargeError extends Error {}
+
+export function getListenHost(env: { readonly API_GATEWAY_HOST?: string } = process.env): string {
+  return env.API_GATEWAY_HOST ?? DEFAULT_HOST;
+}
 
 function parsePort(): number {
   const argIdx = process.argv.indexOf('--port');
@@ -33,15 +44,7 @@ async function main(): Promise<void> {
     console.warn('[mcp-core] REST fallback (apifuse.* operationIds) and Swing tools still work.');
   }
 
-  const server = createServer((req, res) => {
-    void handleRequest(req, res).catch((err) => {
-      console.error('[mcp-core] request handler error:', err);
-      if (!res.headersSent) {
-        res.writeHead(500, { 'Content-Type': 'text/plain' });
-        res.end(`internal error: ${err instanceof Error ? err.message : String(err)}`);
-      }
-    });
-  });
+  const server = createApiGatewayServer(DEFAULT_MAX_BODY_BYTES);
 
   const shutdown = async () => {
     console.log('[mcp-core] shutting down...');
@@ -54,9 +57,45 @@ async function main(): Promise<void> {
   process.on('SIGINT', () => void shutdown());
 
   await new Promise<void>((resolve) => {
-    server.listen(port, () => {
-      console.log(`[mcp-core] ready: http://localhost:${port}/mcp`);
+    const host = getListenHost();
+    server.listen(port, host, () => {
+      console.log(`[mcp-core] ready: http://${host}:${port}/mcp`);
       resolve();
+    });
+  });
+}
+
+export async function startApiGatewayServer(options: {
+  readonly port: number;
+  readonly host?: string;
+  readonly maxBodyBytes?: number;
+}): Promise<{ readonly url: string; close(): Promise<void> }> {
+  const host = options.host ?? getListenHost();
+  const server = createApiGatewayServer(options.maxBodyBytes ?? DEFAULT_MAX_BODY_BYTES);
+
+  await new Promise<void>((resolve) => {
+    server.listen(options.port, host, () => resolve());
+  });
+  const address = server.address() as AddressInfo;
+
+  return {
+    url: `http://${host}:${address.port}`,
+    close() {
+      return new Promise((resolve, reject) => {
+        server.close((err) => (err ? reject(err) : resolve()));
+      });
+    },
+  };
+}
+
+function createApiGatewayServer(maxBodyBytes: number) {
+  return createServer((req, res) => {
+    void handleRequest(req, res, maxBodyBytes).catch((err) => {
+      console.error('[mcp-core] request handler error:', err);
+      if (!res.headersSent) {
+        res.writeHead(500, { 'Content-Type': 'text/plain' });
+        res.end(`internal error: ${err instanceof Error ? err.message : String(err)}`);
+      }
     });
   });
 }
@@ -64,11 +103,22 @@ async function main(): Promise<void> {
 async function handleRequest(
   req: IncomingMessage,
   res: ServerResponse,
+  maxBodyBytes: number,
 ): Promise<void> {
   const url = new URL(req.url ?? '/', `http://localhost`);
 
   if (req.method === 'POST' && url.pathname === '/mcp') {
-    const body = await readBody(req);
+    let body: string;
+    try {
+      body = await readBody(req, maxBodyBytes);
+    } catch (err) {
+      if (err instanceof BodyTooLargeError) {
+        res.writeHead(413, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'request body too large' }));
+        return;
+      }
+      throw err;
+    }
     let parsed: unknown;
     try {
       parsed = JSON.parse(body);
@@ -117,16 +167,33 @@ async function handleRequest(
   res.end('not found');
 }
 
-function readBody(req: IncomingMessage): Promise<string> {
+function readBody(req: IncomingMessage, maxBodyBytes: number): Promise<string> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
-    req.on('data', (chunk: Buffer) => chunks.push(chunk));
-    req.on('end', () => resolve(Buffer.concat(chunks).toString('utf-8')));
-    req.on('error', reject);
+    let size = 0;
+    let rejected = false;
+    req.on('data', (chunk: Buffer) => {
+      if (rejected) return;
+      size += chunk.byteLength;
+      if (size > maxBodyBytes) {
+        rejected = true;
+        reject(new BodyTooLargeError('request body too large'));
+        return;
+      }
+      chunks.push(chunk);
+    });
+    req.on('end', () => {
+      if (!rejected) resolve(Buffer.concat(chunks).toString('utf-8'));
+    });
+    req.on('error', (err) => {
+      if (!rejected) reject(err);
+    });
   });
 }
 
-main().catch((err) => {
-  console.error('[mcp-core] fatal:', err);
-  process.exit(1);
-});
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  main().catch((err) => {
+    console.error('[mcp-core] fatal:', err);
+    process.exit(1);
+  });
+}
