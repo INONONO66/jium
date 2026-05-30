@@ -11,6 +11,7 @@ import {
 } from 'react';
 import {
   AppRenderer,
+  buildAppRendererToolResult,
   type RequestHandlerExtra,
 } from '@ggui-ai/react';
 import {
@@ -35,6 +36,11 @@ import type {
  * `_meta` keys.
  */
 type AppMessageHandler = UseMcpAppsChatResult['handleAppMessage'];
+type AppRendererToolResultMeta = Parameters<typeof buildAppRendererToolResult>[0];
+
+type RenderRefWithMeta = RenderRef & {
+  readonly meta?: AppRendererToolResultMeta;
+};
 
 type LayoutMode = 'inline' | 'panel';
 
@@ -340,6 +346,7 @@ export function Chat({ agentEndpoint, sandboxUrl }: ChatProps) {
       {layout === 'panel' ? (
         <main className="ui-pane">
           <PanelView
+            entries={entries}
             renders={renders}
             sandboxUrl={sandboxUrl}
             agentEndpoint={agentEndpoint}
@@ -465,19 +472,27 @@ function prettyJson(value: unknown): string {
 }
 
 function PanelView({
+  entries,
   renders,
   sandboxUrl,
   agentEndpoint,
   getAuthToken,
   onAppMessage,
 }: {
+  entries: ReadonlyArray<ChatEntry>;
   renders: ReadonlyArray<RenderRef>;
   sandboxUrl: string;
   agentEndpoint: string;
   getAuthToken: () => string | undefined;
   onAppMessage: AppMessageHandler;
 }) {
-  const top = useMemo(() => renders[renders.length - 1], [renders]);
+  const top = useMemo(() => {
+    const latestEntryRender = entries
+      .slice()
+      .reverse()
+      .find((entry) => entry.kind === 'render')?.render;
+    return latestEntryRender ?? renders[renders.length - 1];
+  }, [entries, renders]);
   if (!top) {
     return (
       <div className="ui-placeholder">
@@ -516,7 +531,7 @@ function ResourceFrame({
   fillContainer = false,
   onAppMessage,
 }: {
-  item: RenderRef;
+  item: RenderRefWithMeta;
   sandboxUrl: string;
   agentEndpoint: string;
   getAuthToken: () => string | undefined;
@@ -527,6 +542,17 @@ function ResourceFrame({
   // No fetch needed — render straight from `inlinedResource.text`.
   const html = item.inlinedResource?.text;
   const inlinedCsp = item.inlinedResource?.csp;
+  const toolResult = useMemo(
+    () => (item.meta ? buildAppRendererToolResult(item.meta) : undefined),
+    [item.meta],
+  );
+  const rendererHtml = useMemo(
+    () =>
+      item.meta && toolResult
+        ? buildRuntimeBootstrapHtml(item.meta, toolResult)
+        : html,
+    [html, item.meta, toolResult],
+  );
 
   const sandbox = useMemo(() => {
     if (!inlinedCsp) return { url: new URL(sandboxUrl) };
@@ -636,12 +662,13 @@ function ResourceFrame({
         className="render-frame"
         style={fillContainer ? { flex: 1, minHeight: 0 } : undefined}
       >
-        {html !== undefined ? (
+        {rendererHtml !== undefined ? (
           <AppRenderer
             key={item.resourceUri}
             toolName="ggui_render"
             sandbox={sandbox}
-            html={html}
+            html={rendererHtml}
+            {...(toolResult !== undefined ? { toolResult } : {})}
             onReadResource={onReadResource}
             onCallTool={onCallTool}
             {...(onAppMessage !== undefined ? { onMessage: onAppMessage } : {})}
@@ -660,6 +687,29 @@ function ResourceFrame({
       </div>
     </div>
   );
+}
+
+function buildRuntimeBootstrapHtml(
+  meta: AppRendererToolResultMeta,
+  toolResult: CallToolResult,
+): string {
+  const metaJson = safeScriptJson({ 'ai.ggui/render': meta });
+  const toolResultsJson = safeScriptJson([toolResult]);
+  return `<!doctype html>
+<html lang="en" style="background-color:var(--ggui-color-surface, #1e293b)"><head><meta charset="utf-8"><title>ggui render</title></head>
+<body style="background-color:var(--ggui-color-surface, #1e293b)">
+<div id="ggui-root" data-ggui-shell="loading" data-ggui-render-id="${escapeHtmlAttribute(meta.renderId)}" aria-busy="true"></div>
+<script>window.__GGUI_META__=${metaJson};window.__GGUI_PENDING_TOOL_RESULTS__=${toolResultsJson};</script>
+<script type="module" src="${escapeHtmlAttribute(meta.runtimeUrl)}"></script>
+</body></html>`;
+}
+
+function safeScriptJson(value: unknown): string {
+  return JSON.stringify(value).replace(/</g, '\\u003c');
+}
+
+function escapeHtmlAttribute(value: string): string {
+  return value.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
 }
 
 function shortLabel(item: RenderRef): string {
