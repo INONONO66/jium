@@ -12,7 +12,12 @@
  * `@ggui-ai/protocol/integrations/mcp-apps`. The library handles
  * every `_meta.ui.*` / `_meta.ai.ggui/*` slice.
  */
-import { Agent, MCPServerStreamableHttp, run } from '@openai/agents';
+import {
+  Agent,
+  MCPServerStreamableHttp,
+  OpenAIProvider,
+  Runner,
+} from '@openai/agents';
 import { GGUI_AGENT_SYSTEM_PROMPT } from '@ggui-ai/protocol';
 import type {
   AgentAdapter,
@@ -29,6 +34,7 @@ export interface OpenAiAgentAdapterOptions {
   readonly model?: string;
   /** Default `process.env.OPENAI_API_KEY`. */
   readonly apiKey?: string;
+  readonly baseURL?: string;
 }
 
 /**
@@ -52,11 +58,20 @@ export function createOpenAiAgentAdapter(
   // The SDK reads OPENAI_API_KEY from the env at request time.
   if (!process.env.OPENAI_API_KEY) process.env.OPENAI_API_KEY = apiKey;
   const model = opts.model ?? 'gpt-5.5-2026-04-23';
+  const baseURL = opts.baseURL ?? process.env.OPENAI_BASE_URL;
+  const runner = new Runner({
+    modelProvider: new OpenAIProvider({
+      apiKey,
+      ...(baseURL ? { baseURL } : {}),
+      useResponses: true,
+    }),
+    tracingDisabled: true,
+  });
 
   return {
     name: 'openai-agents-sdk',
     run(input: AgentInput): AsyncIterable<NormalizedMessage> {
-      return runOnce({ input, model });
+      return runOnce({ input, model, runner });
     },
   };
 }
@@ -64,8 +79,9 @@ export function createOpenAiAgentAdapter(
 async function* runOnce(args: {
   readonly input: AgentInput;
   readonly model: string;
+  readonly runner: Runner;
 }): AsyncIterable<NormalizedMessage> {
-  const { input, model } = args;
+  const { input, model, runner } = args;
 
   // Translate the library's brand-agnostic mcpServers map into the
   // SDK's native `MCPServerStreamableHttp[]` shape. Map keys
@@ -113,6 +129,7 @@ async function* runOnce(args: {
         toolNameToServer.set(tool.name, server.name);
       }
     }
+    const callIdToServerName = new Map<string, string>();
 
     const previousResponseId = knownResponseIds.get(input.chatId);
     // We deliberately do NOT forward `input.abortSignal` to the SDK.
@@ -125,7 +142,7 @@ async function* runOnce(args: {
     // disconnect / page reload. Instead we honor abort cooperatively: break
     // the loop (below) and let the for-await's `iterator.return()` tear the
     // stream down cleanly from the lock-holder side.
-    const stream = await run(agent, input.prompt, {
+    const stream = await runner.run(agent, input.prompt, {
       stream: true,
       ...(previousResponseId ? { previousResponseId } : {}),
     });
@@ -193,6 +210,10 @@ async function* runOnce(args: {
           raw?.callId ?? raw?.id ?? `oa-tool-${Date.now()}-${Math.random()}`,
         );
         const name = String(raw?.name ?? 'unknown');
+        const serverName = toolNameToServer.get(name);
+        if (serverName !== undefined) {
+          callIdToServerName.set(id, serverName);
+        }
         const llmInput = raw?.arguments ?? raw?.input ?? {};
         yield {
           type: 'assistant',
@@ -227,7 +248,9 @@ async function* runOnce(args: {
         );
         const toolName = typeof raw?.name === 'string' ? raw.name : undefined;
         const serverName =
-          toolName !== undefined ? toolNameToServer.get(toolName) : undefined;
+          callIdToServerName.get(toolUseId) ??
+          (toolName !== undefined ? toolNameToServer.get(toolName) : undefined);
+        callIdToServerName.delete(toolUseId);
         const fullResult =
           serverName !== undefined ? dequeueFullResult(serverName) : undefined;
         const text = stringifyToolOutput(raw?.output ?? raw?.content);
