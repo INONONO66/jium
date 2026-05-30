@@ -55,6 +55,7 @@ body {
     radial-gradient(at 12% 8%, color-mix(in srgb, var(--accent) 12%, transparent) 0px, transparent 50%),
     radial-gradient(at 88% 92%, color-mix(in srgb, var(--accent) 8%, transparent) 0px, transparent 50%);
   color: var(--fg);
+  font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   overflow: hidden;
   font-size: 14px;
   line-height: 1.55;
@@ -66,6 +67,11 @@ body {
 button {
   font-family: inherit;
   cursor: pointer;
+}
+
+code {
+  color: var(--tool-fg);
+  font-family: ui-monospace, "SFMono-Regular", "SF Mono", Menlo, Consolas, monospace;
 }
 
 /* ── Shell ───────────────────────────────────────────────── */
@@ -94,6 +100,201 @@ button {
   font-size: 14px;
   text-align: center;
   padding: 32px;
+}
+
+.ambient-screen {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  min-height: 100dvh;
+  padding: 24px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 22%, color-mix(in srgb, var(--accent) 20%, transparent), transparent 34%),
+    linear-gradient(145deg, color-mix(in srgb, var(--bg-chat) 86%, black), var(--bg-app));
+}
+
+.ambient-screen::before {
+  content: "";
+  position: absolute;
+  inset: 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 28px;
+  pointer-events: none;
+}
+
+.ambient-screen--error {
+  background:
+    radial-gradient(circle at 50% 22%, color-mix(in srgb, var(--error) 18%, transparent), transparent 34%),
+    linear-gradient(145deg, color-mix(in srgb, var(--bg-chat) 86%, black), var(--bg-app));
+}
+
+.ambient-panel {
+  position: relative;
+  width: min(520px, 100%);
+  padding: 30px;
+  overflow: hidden;
+  border: 1px solid var(--border-strong);
+  border-radius: 28px;
+  background:
+    linear-gradient(180deg, var(--surface-strong), transparent),
+    color-mix(in srgb, var(--bg-chat) 88%, transparent);
+  box-shadow:
+    0 24px 80px rgba(0, 0, 0, 0.32),
+    inset 0 1px 0 color-mix(in srgb, white 8%, transparent);
+  animation: card-in 0.45s var(--ease-out);
+}
+
+.ambient-panel h1,
+.own-hero h1,
+.tool-timeline__header h1 {
+  margin-top: 8px;
+  color: var(--fg);
+  font-size: clamp(24px, 7vw, 42px);
+  font-weight: 720;
+  letter-spacing: -0.055em;
+  line-height: 0.98;
+}
+
+.ambient-copy,
+.own-hero p {
+  margin-top: 16px;
+  color: var(--fg-muted);
+  font-size: 15px;
+}
+
+.ambient-detail {
+  margin-top: 14px;
+  color: var(--fg-faint);
+  font-size: 12px;
+}
+
+.ambient-eyebrow {
+  color: var(--tool-fg);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.ambient-orb {
+  width: 64px;
+  height: 64px;
+  border: 1px solid color-mix(in srgb, var(--accent) 34%, transparent);
+  border-radius: 22px;
+  margin-bottom: 22px;
+  background:
+    radial-gradient(circle at 35% 28%, color-mix(in srgb, white 32%, transparent), transparent 20%),
+    radial-gradient(circle at 70% 72%, var(--accent), transparent 54%);
+  box-shadow: var(--accent-glow);
+  animation: ambient-breathe 2.8s var(--ease-out) infinite;
+}
+
+.ambient-steps {
+  display: flex;
+  gap: 8px;
+  margin-top: 24px;
+}
+
+.ambient-steps span {
+  width: 42px;
+  height: 3px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 42%, transparent);
+  animation: step-glow 1.2s ease-in-out infinite;
+}
+
+.ambient-steps span:nth-child(2) { animation-delay: 0.16s; }
+.ambient-steps span:nth-child(3) { animation-delay: 0.32s; }
+
+.own-page {
+  height: 100dvh;
+  padding: max(24px, env(safe-area-inset-top)) 20px max(28px, env(safe-area-inset-bottom));
+  overflow-y: auto;
+  background:
+    radial-gradient(circle at 85% 12%, color-mix(in srgb, var(--accent) 20%, transparent), transparent 28%),
+    radial-gradient(circle at 10% 85%, color-mix(in srgb, var(--tool-fg) 12%, transparent), transparent 30%),
+    var(--bg-app);
+}
+
+.own-nav {
+  position: sticky;
+  top: 16px;
+  z-index: 10;
+  display: flex;
+  gap: 8px;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 auto;
+  padding: 6px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg-chat) 78%, transparent);
+  backdrop-filter: blur(18px);
+}
+
+.own-nav button {
+  min-width: 78px;
+  padding: 9px 13px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--fg-muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.own-nav button[aria-current="page"] {
+  color: var(--user-bubble-fg);
+  background: var(--accent);
+}
+
+.own-hero {
+  width: min(760px, 100%);
+  margin: 88px auto 28px;
+  padding: 28px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 30px;
+  background: linear-gradient(180deg, var(--surface-strong), transparent);
+}
+
+.own-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  width: min(960px, 100%);
+  margin: 0 auto;
+}
+
+.own-card {
+  min-height: 178px;
+  padding: 18px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 24px;
+  background: color-mix(in srgb, var(--bg-card) 76%, transparent);
+  animation: card-in 0.42s var(--ease-out) both;
+  animation-delay: var(--delay, 0ms);
+}
+
+.own-card span {
+  color: var(--fg-faint);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+
+.own-card h2 {
+  margin-top: 34px;
+  color: var(--fg);
+  font-size: 18px;
+  letter-spacing: -0.03em;
+}
+
+.own-card p {
+  margin-top: 10px;
+  color: var(--fg-muted);
+  font-size: 13px;
 }
 
 /* ── Card stack ──────────────────────────────────────────── */
@@ -170,6 +371,71 @@ button {
   background: var(--error-bg);
 }
 
+.tool-timeline {
+  width: min(560px, calc(100vw - 32px));
+  max-height: min(680px, calc(100dvh - 112px));
+  padding: 22px;
+  overflow-y: auto;
+  border: 1px solid var(--border-subtle);
+  border-radius: 28px;
+  background:
+    linear-gradient(180deg, var(--surface-strong), transparent),
+    color-mix(in srgb, var(--bg-chat) 86%, transparent);
+  box-shadow: 0 22px 70px rgba(0, 0, 0, 0.28);
+}
+
+.tool-timeline__header {
+  margin-bottom: 18px;
+}
+
+.tool-timeline__header h1 {
+  max-width: 380px;
+  font-size: clamp(22px, 5vw, 32px);
+}
+
+.tool-row {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 14px 0;
+  border-top: 1px solid var(--border-subtle);
+  animation: card-in 0.3s var(--ease-out);
+}
+
+.tool-row__rail {
+  display: grid;
+  place-items: center;
+}
+
+.tool-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--ggui-color-success, #6db86d);
+  box-shadow: 0 0 18px color-mix(in srgb, var(--ggui-color-success, #6db86d) 50%, transparent);
+}
+
+.tool-row--error .tool-dot {
+  background: var(--error);
+  box-shadow: 0 0 18px color-mix(in srgb, var(--error) 50%, transparent);
+}
+
+.tool-row__body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tool-row__meta {
+  color: var(--fg-faint);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* ── Generating / error state cards ─────────────────────── */
 
 .generating-card {
@@ -240,6 +506,10 @@ button {
 
 .fab:active {
   transform: scale(0.95);
+}
+
+.shell[data-mode="presenting"] .fab {
+  display: none;
 }
 
 /* ── Modal overlay ───────────────────────────────────────── */
@@ -326,6 +596,73 @@ button {
   display: block;
 }
 
+.resource-fallback {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  padding: 24px;
+  color: var(--fg-muted);
+  font-size: 13px;
+  text-align: center;
+  background: var(--bg-app);
+}
+
+@media (max-width: 720px) {
+  .ambient-screen {
+    padding: 16px;
+  }
+
+  .ambient-screen::before {
+    inset: 8px;
+    border-radius: 22px;
+  }
+
+  .ambient-panel,
+  .own-hero,
+  .tool-timeline {
+    padding: 22px;
+    border-radius: 24px;
+  }
+
+  .own-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .own-nav {
+    width: 100%;
+    justify-content: center;
+    overflow-x: auto;
+  }
+
+  .own-nav button {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .own-hero {
+    margin-top: 64px;
+  }
+
+  .tool-row {
+    grid-template-columns: 24px minmax(0, 1fr);
+  }
+
+  .tool-row .card-status {
+    grid-column: 2;
+    justify-self: start;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 /* ── Keyframes ───────────────────────────────────────────── */
 
 @keyframes card-in {
@@ -357,6 +694,16 @@ button {
 @keyframes pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.5; }
+}
+
+@keyframes ambient-breathe {
+  0%, 100% { transform: scale(1); opacity: 0.86; }
+  50% { transform: scale(1.04); opacity: 1; }
+}
+
+@keyframes step-glow {
+  0%, 100% { opacity: 0.34; transform: scaleX(0.72); }
+  50% { opacity: 1; transform: scaleX(1); }
 }
 
 @keyframes spin {

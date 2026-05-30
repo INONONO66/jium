@@ -1,6 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import { ThemeProvider, getRawTheme } from '@ggui-ai/design/themes';
 import { FullscreenShell } from './FullscreenShell';
+
+type AppRoute = 'home' | 'user' | 'calendar';
 
 /**
  * Public agent backend URL. Resolution order:
@@ -39,6 +41,34 @@ const AGENT_ENDPOINT = resolveAgentEndpoint();
 const INDIGO_DARK = getRawTheme('indigo', 'dark');
 
 export function App() {
+  const [route, setRoute] = useState<AppRoute>(() => getRouteFromPath());
+
+  useEffect(() => {
+    const onPopState = () => setRoute(getRouteFromPath());
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
+
+  const navigate = (nextRoute: AppRoute) => {
+    const path = routeToPath(nextRoute);
+    window.history.pushState({}, '', path);
+    setRoute(nextRoute);
+  };
+
+  return (
+    <ThemeProvider theme={INDIGO_DARK} mode="dark">
+      {route === 'user' ? (
+        <OwnFrontendPage route="user" onNavigate={navigate} />
+      ) : route === 'calendar' ? (
+        <OwnFrontendPage route="calendar" onNavigate={navigate} />
+      ) : (
+        <HomeSurface />
+      )}
+    </ThemeProvider>
+  );
+}
+
+function HomeSurface() {
   // Sandbox-proxy URL read once from the agent backend's `GET /`
   // manifest on mount. `<AppRenderer>` mandates a second-origin sandbox
   // host per MCP Apps spec; the Jium agent auto-binds a
@@ -85,24 +115,114 @@ export function App() {
     };
   }, []);
 
+  if (sandboxUrl !== null) {
+    return <FullscreenShell agentEndpoint={AGENT_ENDPOINT} sandboxUrl={sandboxUrl} />;
+  }
+  if (sandboxError !== null) {
+    return (
+        <ShellStatus
+          tone="error"
+          eyebrow="Canvas unavailable"
+          title="Jium backend에 연결할 수 없어요"
+          body="지금은 실행 캔버스를 열 수 없습니다. 잠시 후 다시 시도해 주세요."
+          detail={sandboxError}
+        />
+    );
+  }
   return (
-    <ThemeProvider theme={INDIGO_DARK} mode="dark">
-      {sandboxUrl !== null ? (
-        <FullscreenShell agentEndpoint={AGENT_ENDPOINT} sandboxUrl={sandboxUrl} />
-      ) : sandboxError !== null ? (
-        <div style={{ padding: 24, color: '#c00', fontFamily: 'system-ui' }}>
-          Failed to reach agent backend at <code>{AGENT_ENDPOINT}</code>:{' '}
-          <strong>{sandboxError}</strong>
-          <p style={{ marginTop: 12, fontSize: 13, color: '#666' }}>
-            Confirm <code>VITE_AGENT_ENDPOINT_URL</code> points at a running
-            MCP-Apps-spec backend (see <code>.env.example</code>).
-          </p>
-        </div>
-      ) : (
-        <div style={{ padding: 24, color: '#888', fontFamily: 'system-ui' }}>
-          Connecting to agent at <code>{AGENT_ENDPOINT}</code>…
-        </div>
-      )}
-    </ThemeProvider>
+        <ShellStatus
+          eyebrow="Booting ambient shell"
+          title="Jium이 작업 캔버스를 준비하고 있어요"
+          body="생성형 UI를 안전하게 띄우기 위한 실행 환경을 확인하는 중입니다."
+          detail="연결이 끝나면 GGUI 실행 화면으로 자연스럽게 전환됩니다."
+        />
   );
+}
+
+function ShellStatus({
+  tone = 'loading',
+  eyebrow,
+  title,
+  body,
+  detail,
+}: {
+  readonly tone?: 'loading' | 'error';
+  readonly eyebrow: string;
+  readonly title: string;
+  readonly body: string;
+  readonly detail: string;
+}) {
+  return (
+    <main className={`ambient-screen ambient-screen--${tone}`}>
+      <section className="ambient-panel" aria-busy={tone === 'loading'}>
+        <div className="ambient-orb" aria-hidden="true" />
+        <p className="ambient-eyebrow">{eyebrow}</p>
+        <h1>{title}</h1>
+        <p className="ambient-copy">{body}</p>
+        <p className="ambient-detail">{detail}</p>
+        {tone === 'loading' && (
+          <div className="ambient-steps" aria-label="Loading progress">
+            <span />
+            <span />
+            <span />
+          </div>
+        )}
+      </section>
+    </main>
+  );
+}
+
+function OwnFrontendPage({
+  route,
+  onNavigate,
+}: {
+  readonly route: Exclude<AppRoute, 'home'>;
+  readonly onNavigate: (route: AppRoute) => void;
+}) {
+  const isUser = route === 'user';
+  const title = isUser ? 'User context' : 'Calendar surface';
+  const description = isUser
+    ? 'Jium이 개인 맥락을 보여줄 자체 프론트 영역입니다.'
+    : '오늘의 일정과 집중 블록을 보여줄 자체 프론트 영역입니다.';
+  const cards = isUser
+    ? ['Profile signal', 'Connected services', 'Preference memory']
+    : ['Today timeline', 'Upcoming actions', 'Focus blocks'];
+
+  return (
+    <main className="own-page" data-testid={`${route}-page`}>
+      <nav className="own-nav" aria-label="Jium sections">
+        <button type="button" onClick={() => onNavigate('home')}>Canvas</button>
+        <button type="button" aria-current={isUser ? 'page' : undefined} onClick={() => onNavigate('user')}>User</button>
+        <button type="button" aria-current={!isUser ? 'page' : undefined} onClick={() => onNavigate('calendar')}>Calendar</button>
+      </nav>
+      <section className="own-hero">
+        <p className="ambient-eyebrow">Own frontend</p>
+        <h1>{title}</h1>
+        <p>{description}</p>
+      </section>
+      <section className="own-grid" aria-label={`${title} preview`}>
+        {cards.map((card, index) => (
+          <article className="own-card" key={card} style={{ '--delay': `${index * 70}ms` } as CSSProperties & Record<'--delay', string>}>
+            <span>{String(index + 1).padStart(2, '0')}</span>
+            <h2>{card}</h2>
+            <p>서비스 연결 전에도 레이아웃과 테마가 유지되도록 준비된 자리입니다.</p>
+          </article>
+        ))}
+      </section>
+    </main>
+  );
+}
+
+function getRouteFromPath(): AppRoute {
+  if (typeof window === 'undefined') return 'home';
+  if (window.location.pathname === '/user') return 'user';
+  if (window.location.pathname === '/calendar') return 'calendar';
+  return 'home';
+}
+
+function routeToPath(route: AppRoute): string {
+  const search = typeof window === 'undefined' ? '' : window.location.search;
+  if (route === 'user') return `/user${search}`;
+  if (route === 'calendar') return `/calendar${search}`;
+  return `/${search}`;
 }

@@ -170,14 +170,28 @@ export function FullscreenShell({ agentEndpoint, sandboxUrl }: FullscreenShellPr
   }, [entries, renders]);
 
   if (!guestTokenReady) {
-    return <div style={{ padding: 24, color: '#888', fontFamily: 'system-ui' }}>세션 준비 중…</div>;
+    return (
+      <main className="ambient-screen">
+        <section className="ambient-panel" aria-busy="true">
+          <div className="ambient-orb" aria-hidden="true" />
+          <p className="ambient-eyebrow">Preparing canvas</p>
+          <h1>개인 작업 세션을 준비하고 있어요</h1>
+          <p className="ambient-copy">곧 필요한 도구와 생성형 UI를 이어서 실행 캔버스를 열겠습니다.</p>
+          <div className="ambient-steps" aria-label="Loading progress">
+            <span />
+            <span />
+            <span />
+          </div>
+        </section>
+      </main>
+    );
   }
 
   return (
     <div className="shell" data-testid="fullscreen-shell" data-mode={mode} data-testid-mode={`shell-mode-${mode}`}>
       {mode === 'idle' && (
         <div className="shell-idle" data-testid="shell-mode-idle">
-          <p>메시지를 입력하여 시작하세요</p>
+          <p>필요한 순간을 말하면 바로 실행 가능한 UI로 준비할게요</p>
         </div>
       )}
       {mode === 'tooling' && (
@@ -384,7 +398,7 @@ function ResourceFrame({
           onError={(err) => console.warn('[ResourceFrame] AppRenderer error', err)}
         />
       ) : (
-        <div style={{ padding: 12, fontSize: 13, color: '#888' }}>
+        <div className="resource-fallback">
           Resource not inlined — the agent-server didn't pre-fetch the iframe HTML for {item.resourceUri}.
         </div>
       )}
