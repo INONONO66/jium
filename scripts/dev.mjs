@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * `pnpm dev` starts the currently runnable Jium surface:
- * ggui render MCP, API gateway MCP, agent backend, and web app.
+ * ggui render MCP, API gateway MCP, user-context MCP, agent backend, and web app.
  */
 import { spawn } from 'node:child_process';
 import { createInterface } from 'node:readline';
@@ -16,6 +16,7 @@ const VERBOSE =
 const SERVICES = [
   { name: 'ggui', color: 34, script: 'dev:ggui', where: 'http://localhost:6781/mcp', note: 'UI render MCP' },
   { name: 'api', color: 35, script: 'dev:api-gateway', where: 'http://localhost:6783/mcp', note: 'API Fuse + Swing MCP' },
+  { name: 'ctx', color: 33, script: 'dev:user-context', where: 'http://localhost:6784/mcp', note: 'user context MCP' },
   { name: 'agent', color: 32, script: 'dev:agent', where: `http://localhost:${AGENT_PORT}`, note: 'OpenAI Agents backend' },
   { name: 'web', color: 36, script: 'dev:web', where: WEB_URL, note: 'fullscreen app shell ←' },
 ];
