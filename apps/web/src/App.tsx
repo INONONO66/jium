@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ThemeProvider, getRawTheme } from '@ggui-ai/design/themes';
-import { Chat } from './Chat';
+import { FullscreenShell } from './FullscreenShell';
 
 /**
  * Public agent backend URL. Resolution order:
@@ -88,7 +88,7 @@ export function App() {
   return (
     <ThemeProvider theme={INDIGO_DARK} mode="dark">
       {sandboxUrl !== null ? (
-        <Chat agentEndpoint={AGENT_ENDPOINT} sandboxUrl={sandboxUrl} />
+        <FullscreenShell agentEndpoint={AGENT_ENDPOINT} sandboxUrl={sandboxUrl} />
       ) : sandboxError !== null ? (
         <div style={{ padding: 24, color: '#c00', fontFamily: 'system-ui' }}>
           Failed to reach agent backend at <code>{AGENT_ENDPOINT}</code>:{' '}
