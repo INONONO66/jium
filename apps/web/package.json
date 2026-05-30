@@ -12,8 +12,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@ggui-ai/design": "^0.2.0-alpha.1",
-    "@ggui-ai/react": "^0.2.0-alpha.1",
+    "@ggui-ai/design": "0.2.0-alpha.4",
+    "@ggui-ai/react": "0.2.0-alpha.4",
     "@modelcontextprotocol/sdk": "^1.27.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"

@@ -1,12 +1,12 @@
 {
   "schema": "1",
-  "protocol": "draft-2026-05-23",
+  "protocol": "draft-2026-05-28",
   "app": {
     "slug": "sample-ggui-default",
     "name": "Sample ggui — default"
   },
   "generation": {
-    "model": "anthropic:claude-haiku-4-5-20251001"
+    "model": "openai:gpt-5.5"
   },
   "theme": {
     "preset": "indigo",

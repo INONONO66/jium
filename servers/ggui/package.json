@@ -10,6 +10,6 @@
     "start:secure": "ggui serve --mcp-only --port ${PORT:-6781} --public-base-url ${GGUI_PUBLIC_BASE_URL:-http://localhost:${PORT:-6781}}"
   },
   "dependencies": {
-    "@ggui-ai/cli": "^0.2.0-alpha.1"
+    "@ggui-ai/cli": "0.2.0-alpha.4"
   }
 }
