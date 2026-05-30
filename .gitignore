@@ -6,27 +6,36 @@ node_modules/
 # Build output
 dist/
 dist-ui/
+.vite/
 *.tsbuildinfo
 .turbo/
+coverage/
 
-# Environment — never commit secrets
+# Environment and secrets
 .env
-.env*.local
-
-# Claude Code — per-developer local settings (never commit)
-.claude/settings.local.json
-
-# ggui serve runtime state (sessions, render secrets, vector index)
-.ggui/
-
-# Test / coverage
-/coverage
-
-# Editor / OS
-.DS_Store
+.env.*
+!.env.example
 *.pem
+*.key
+*.crt
+
+# Runtime state
+.ggui/
+.playwright-mcp/
+.omo/run-continuation/
+.omo/evidence/
+
+# Local tool settings
+.claude/settings.local.json
+.opencode/
 
 # Logs
 npm-debug.log*
 yarn-debug.log*
 pnpm-debug.log*
+*.log
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/

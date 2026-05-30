@@ -1,13 +1,8 @@
 #!/usr/bin/env node
-/**
- * `pnpm dev:stop` — free the dev ports if a previous `pnpm dev` left a
- * straggler (e.g. after a hard `kill -9`). `pnpm dev` already tears down its
- * own process tree on Ctrl-C, so this is just a backstop.
- */
 import { execFileSync } from 'node:child_process';
 
-// ggui (6781), the MCP servers (6782+), the agent (6790/6791/6792 by SDK), web (6890).
-const PORTS = [6781, 6782, 6790, 6791, 6792, 6890];
+// ggui, api-gateway, future user-context/audio, agent/sandbox proxy, web.
+const PORTS = [6781, 6783, 6784, 6785, 6791, 7791, 6890];
 let freed = 0;
 
 for (const port of PORTS) {
@@ -16,10 +11,10 @@ for (const port of PORTS) {
     listed = execFileSync('lsof', ['-ti', `tcp:${port}`], { encoding: 'utf8' });
   } catch (err) {
     if (err && err.code === 'ENOENT') {
-      console.error('lsof not found — stop the servers manually, e.g. `pkill -f tsx && pkill -f vite`.');
+      console.error('lsof not found — stop the servers manually.');
       process.exit(1);
     }
-    continue; // lsof exits non-zero when nothing is listening on this port
+    continue;
   }
   for (const pid of listed.split('\n').map((s) => s.trim()).filter(Boolean)) {
     try {

@@ -1,0 +1,14 @@
+{
+  "name": "@jium/audio",
+  "version": "0.0.1",
+  "description": "Audio pipeline placeholder for VAD, STT, and transcript ingestion.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -b --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}

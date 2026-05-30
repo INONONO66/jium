@@ -1,0 +1,14 @@
+{
+  "name": "@jium/landing",
+  "version": "0.0.1",
+  "description": "Landing page placeholder for Jium.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -b --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}

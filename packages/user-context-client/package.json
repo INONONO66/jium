@@ -1,0 +1,17 @@
+{
+  "name": "@jium/user-context-client",
+  "version": "0.0.1",
+  "description": "Client package for accessing the Jium user context service.",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -b --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}

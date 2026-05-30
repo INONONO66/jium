@@ -1,0 +1,17 @@
+{
+  "name": "@jium/shared",
+  "version": "0.0.1",
+  "description": "Shared types and utilities for Jium.",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -b --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}

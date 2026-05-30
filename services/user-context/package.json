@@ -1,0 +1,14 @@
+{
+  "name": "@jium/user-context",
+  "version": "0.0.1",
+  "description": "User context service placeholder for calendar, profile, preferences, and location context.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -b --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}
