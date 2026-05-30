@@ -201,7 +201,6 @@ export function FullscreenShell({ agentEndpoint, sandboxUrl }: FullscreenShellPr
             agentEndpoint={agentEndpoint}
             getAuthToken={getAuthToken}
             onAppMessage={handleAppMessage}
-            fillContainer
           />
         </div>
       )}
@@ -248,14 +247,12 @@ function ResourceFrame({
   sandboxUrl,
   agentEndpoint,
   getAuthToken,
-  fillContainer = false,
   onAppMessage,
 }: {
   item: RenderRefWithMeta;
   sandboxUrl: string;
   agentEndpoint: string;
   getAuthToken: () => string | undefined;
-  fillContainer?: boolean;
   onAppMessage?: AppMessageHandler;
 }) {
   // Inlined resource ride-along from the library's interceptor wins.
@@ -426,12 +423,4 @@ function escapeHtmlAttribute(value: string): string {
     .replace(/'/g, '&#39;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
-}
-
-function shortLabel(item: RenderRef): string {
-  if (item.toolUseId !== undefined && item.toolUseId.length > 0) {
-    return `#${item.toolUseId.slice(0, 12)}`;
-  }
-  const tail = item.resourceUri.split('/').filter(Boolean).pop() ?? '';
-  return tail.length > 0 ? `#${tail.slice(0, 12)}` : '#render';
 }
