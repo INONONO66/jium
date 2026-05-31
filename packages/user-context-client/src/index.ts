@@ -2,6 +2,7 @@ export type AmbientContextImportance = 'low' | 'medium' | 'high';
 
 export interface AudioTranscriptChunk {
   readonly id: string;
+  readonly userId?: string;
   readonly text: string;
   readonly startedAt: string;
   readonly endedAt?: string;
@@ -10,6 +11,7 @@ export interface AudioTranscriptChunk {
 
 export interface AmbientContextEvent {
   readonly id: string;
+  readonly userId: string;
   readonly type: 'ambient_audio_context';
   readonly timestamp: string;
   readonly importance: AmbientContextImportance;
@@ -19,6 +21,7 @@ export interface AmbientContextEvent {
 }
 
 export interface ListRecentContextEventsOptions {
+  readonly userId?: string;
   readonly limit?: number;
 }
 
@@ -63,6 +66,7 @@ export class UserContextHttpClient {
     options: ListRecentContextEventsOptions = {},
   ): Promise<AmbientContextEvent[]> {
     const url = new URL(`${this.baseUrl}/context-events/recent`);
+    if (options.userId !== undefined) url.searchParams.set('userId', options.userId);
     if (options.limit !== undefined) url.searchParams.set('limit', String(options.limit));
     const response = await this.fetchImpl(url.toString());
     return parseJsonResponse<AmbientContextEvent[]>(response);

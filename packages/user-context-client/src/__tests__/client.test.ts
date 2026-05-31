@@ -19,6 +19,7 @@ describe('UserContextHttpClient', () => {
 
     const event = await client.recordAmbientAudioContext({
       id: 'event-1',
+      userId: 'u1',
       type: 'ambient_audio_context',
       timestamp: '2026-05-31T02:00:00.000Z',
       importance: 'high',
