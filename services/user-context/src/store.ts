@@ -30,6 +30,7 @@ export interface UserContextStore {
     readonly userId: string;
     readonly events: CalendarEvent[];
   }): CalendarEvent[];
+  deleteCalendarEvent(input: { readonly userId: string; readonly eventId: string }): { readonly deleted: boolean };
   getSession(input: { readonly userId: string; readonly sessionId: string }): UserSession;
   updateSession(input: {
     readonly userId: string;
@@ -140,6 +141,11 @@ export function createUserContextStore(options: UserContextStoreOptions = {}): U
       return sortedEvents(calendar.values());
     },
 
+    deleteCalendarEvent(input) {
+      const calendar = getUserCalendar(input.userId);
+      return { deleted: calendar.delete(input.eventId) };
+    },
+
     getSession(input) {
       return getSession(input.userId, input.sessionId);
     },
@@ -166,7 +172,10 @@ export function createUserContextStore(options: UserContextStoreOptions = {}): U
 
     listRecentContextEvents(options = {}) {
       const limit = clampRecentLimit(options.limit);
-      return [...contextEvents].sort((a, b) => b.timestamp.localeCompare(a.timestamp)).slice(0, limit);
+      const events = options.userId === undefined
+        ? contextEvents
+        : contextEvents.filter((event) => event.userId === options.userId);
+      return [...events].sort((a, b) => b.timestamp.localeCompare(a.timestamp)).slice(0, limit);
     },
   };
 }

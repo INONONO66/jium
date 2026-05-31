@@ -7,6 +7,7 @@ describe('user context ambient audio store', () => {
 
     store.recordAmbientAudioContext({
       id: 'older',
+      userId: 'u1',
       type: 'ambient_audio_context',
       timestamp: '2026-05-31T01:00:00.000Z',
       importance: 'medium',
@@ -19,6 +20,7 @@ describe('user context ambient audio store', () => {
     });
     store.recordAmbientAudioContext({
       id: 'newer',
+      userId: 'u1',
       type: 'ambient_audio_context',
       timestamp: '2026-05-31T02:00:00.000Z',
       importance: 'high',
@@ -30,7 +32,7 @@ describe('user context ambient audio store', () => {
       },
     });
 
-    const recent = store.listRecentContextEvents({ limit: 1 });
+    const recent = store.listRecentContextEvents({ userId: 'u1', limit: 1 });
 
     expect(recent).toHaveLength(1);
     expect(recent[0]?.id).toBe('newer');
@@ -43,6 +45,7 @@ describe('user context ambient audio store', () => {
     for (const id of ['oldest', 'middle', 'newest']) {
       store.recordAmbientAudioContext({
         id,
+        userId: 'u1',
         type: 'ambient_audio_context',
         timestamp: `2026-05-31T0${id === 'oldest' ? 1 : id === 'middle' ? 2 : 3}:00:00.000Z`,
         importance: 'medium',
@@ -55,10 +58,35 @@ describe('user context ambient audio store', () => {
       });
     }
 
-    expect(store.listRecentContextEvents({ limit: 10 }).map((event) => event.id)).toEqual([
+    expect(store.listRecentContextEvents({ userId: 'u1', limit: 10 }).map((event) => event.id)).toEqual([
       'newest',
       'middle',
     ]);
+  });
+
+  it('keeps ambient context events scoped by userId', () => {
+    const store = createUserContextStore();
+
+    store.recordAmbientAudioContext({
+      id: 'u1-event',
+      userId: 'u1',
+      type: 'ambient_audio_context',
+      timestamp: '2026-05-31T01:00:00.000Z',
+      importance: 'medium',
+      summary: 'u1 event',
+      rawTranscript: { id: 'chunk-u1', text: 'u1', startedAt: '2026-05-31T01:00:00.000Z' },
+    });
+    store.recordAmbientAudioContext({
+      id: 'u2-event',
+      userId: 'u2',
+      type: 'ambient_audio_context',
+      timestamp: '2026-05-31T02:00:00.000Z',
+      importance: 'medium',
+      summary: 'u2 event',
+      rawTranscript: { id: 'chunk-u2', text: 'u2', startedAt: '2026-05-31T02:00:00.000Z' },
+    });
+
+    expect(store.listRecentContextEvents({ userId: 'u1', limit: 10 }).map((event) => event.id)).toEqual(['u1-event']);
   });
 
   it('rejects malformed ambient audio events before they reach recent context', async () => {
@@ -70,7 +98,7 @@ describe('user context ambient audio store', () => {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ type: 'ambient_audio_context', timestamp: null }),
       });
-      const recent = await fetch(`${server.url}/context-events/recent?limit=9999`);
+      const recent = await fetch(`${server.url}/context-events/recent?userId=u1&limit=9999`);
       const events = (await recent.json()) as unknown[];
 
       expect(invalid.status).toBe(400);
