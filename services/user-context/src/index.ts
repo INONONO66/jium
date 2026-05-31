@@ -7,7 +7,8 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { z } from 'zod';
 import { registerUserContextTools } from './handlers.js';
-import { createUserContextStore, type UserContextStore } from './store.js';
+import type { UserContextStore } from './store.js';
+import { createConfiguredUserContextStore } from './store-factory.js';
 
 export { createUserContextStore } from './store.js';
 
@@ -16,6 +17,7 @@ const DEFAULT_MAX_BODY_BYTES = 64 * 1024;
 
 const transcriptChunkSchema = z.object({
   id: z.string().min(1),
+  userId: z.string().min(1).optional(),
   text: z.string(),
   startedAt: z.string().min(1),
   endedAt: z.string().min(1).optional(),
@@ -24,6 +26,7 @@ const transcriptChunkSchema = z.object({
 
 const ambientContextEventSchema = z.object({
   id: z.string().min(1),
+  userId: z.string().min(1),
   type: z.literal('ambient_audio_context'),
   timestamp: z.string().min(1),
   importance: z.enum(['low', 'medium', 'high']),
@@ -44,7 +47,7 @@ export async function startUserContextServer(options: {
   readonly store?: UserContextStore;
   readonly maxBodyBytes?: number;
 }): Promise<{ readonly url: string; close(): Promise<void> }> {
-  const store = options.store ?? createUserContextStore();
+  const store = options.store ?? await createConfiguredUserContextStore();
   const host = options.host ?? getListenHost();
   const maxBodyBytes = options.maxBodyBytes ?? DEFAULT_MAX_BODY_BYTES;
   const server = createServer((req, res) => {
@@ -98,9 +101,10 @@ async function handleRequest(
   }
 
   if (req.method === 'GET' && url.pathname === '/context-events/recent') {
+    const userId = url.searchParams.get('userId') ?? undefined;
     const rawLimit = url.searchParams.get('limit');
     const limit = rawLimit === null ? undefined : Number(rawLimit);
-    sendJson(res, 200, store.listRecentContextEvents({ limit }));
+    sendJson(res, 200, store.listRecentContextEvents({ userId, limit }));
     return;
   }
 

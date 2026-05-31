@@ -60,4 +60,24 @@ describe('S2: user context isolation and empty calendar boundary', () => {
       }),
     ).toEqual([]);
   });
+
+  it('deletes calendar events by user and reports whether anything was removed', () => {
+    const store = createUserContextStore();
+
+    store.upsertCalendarEvents({
+      userId: 'u1',
+      events: [
+        {
+          id: 'event-1',
+          title: 'Coffee',
+          startsAt: '2026-05-31T10:00:00.000Z',
+          endsAt: '2026-05-31T11:00:00.000Z',
+        },
+      ],
+    });
+
+    expect(store.deleteCalendarEvent({ userId: 'u1', eventId: 'event-1' })).toEqual({ deleted: true });
+    expect(store.deleteCalendarEvent({ userId: 'u1', eventId: 'event-1' })).toEqual({ deleted: false });
+    expect(store.getCurrent({ userId: 'u1', sessionId: 's1' }).calendar.events).toEqual([]);
+  });
 });

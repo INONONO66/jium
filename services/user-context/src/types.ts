@@ -40,6 +40,7 @@ export type AmbientContextImportance = 'low' | 'medium' | 'high';
 
 export interface AudioTranscriptChunk {
   readonly id: string;
+  readonly userId?: string;
   readonly text: string;
   readonly startedAt: string;
   readonly endedAt?: string;
@@ -48,6 +49,7 @@ export interface AudioTranscriptChunk {
 
 export interface AmbientContextEvent {
   readonly id: string;
+  readonly userId: string;
   readonly type: 'ambient_audio_context';
   readonly timestamp: string;
   readonly importance: AmbientContextImportance;
@@ -57,5 +59,6 @@ export interface AmbientContextEvent {
 }
 
 export interface ListRecentContextEventsOptions {
+  readonly userId?: string;
   readonly limit?: number;
 }
