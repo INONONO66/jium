@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import { type ChatEntry } from '@ggui-ai/react/chat-helpers';
 
 type ToolCallEntry = Extract<ChatEntry, { kind: 'tool-call' }>;
@@ -5,12 +6,9 @@ type ToolCallEntry = Extract<ChatEntry, { kind: 'tool-call' }>;
 export function ToolCardStack({ entries }: { entries: ReadonlyArray<ChatEntry> }) {
   const toolCalls = entries.filter((e): e is ToolCallEntry => e.kind === 'tool-call');
   if (toolCalls.length === 0) return null;
+
   return (
     <div className="tool-timeline" data-testid="tool-card-stack">
-      <div className="tool-timeline__header">
-        <p className="ambient-eyebrow">Service activity</p>
-        <h1>필요한 도구를 조용히 실행하고 있어요</h1>
-      </div>
       {toolCalls.map((entry, index) => {
         const shortName = formatToolName(entry.name);
         const pending = entry.result === undefined && entry.isError !== true;
@@ -19,6 +17,7 @@ export function ToolCardStack({ entries }: { entries: ReadonlyArray<ChatEntry> }
           <div
             key={entry.id}
             className={`tool-row tool-row--${status}`}
+            style={{ '--delay': `${index * 70}ms` } as CSSProperties}
             data-testid={`tool-card-${index}`}
           >
             <span className="tool-row__rail" aria-hidden="true">

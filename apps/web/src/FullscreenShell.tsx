@@ -37,7 +37,7 @@ interface FullscreenShellProps {
   readonly sandboxUrl: string;
 }
 
-type ShellMode = 'idle' | 'tooling' | 'generating' | 'presenting' | 'error';
+type ShellMode = 'idle' | 'thinking' | 'tooling' | 'generating' | 'presenting' | 'error';
 
 // localStorage keys for the guest-token flow. The token survives
 // reloads so a returning visitor lands on the same chats; the chatId
@@ -162,12 +162,44 @@ export function FullscreenShell({ agentEndpoint, sandboxUrl }: FullscreenShellPr
 
   useEffect(() => () => abort(), [abort]);
 
-  const mode = useMemo(() => deriveMode(entries), [entries]);
+  const mode = useMemo(() => deriveMode(entries, sending), [entries, sending]);
+
+  const isActive = mode !== 'idle' && mode !== 'presenting';
+  const elapsedRef = useRef(0);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [elapsed, setElapsed] = useState(0);
+
+  useEffect(() => {
+    if (isActive) {
+      if (intervalRef.current === null) {
+        elapsedRef.current = 0;
+        setElapsed(0);
+        intervalRef.current = setInterval(() => {
+          elapsedRef.current += 1;
+          setElapsed(elapsedRef.current);
+        }, 1000);
+      }
+    } else {
+      if (intervalRef.current !== null) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+      elapsedRef.current = 0;
+      setElapsed(0);
+    }
+    return () => {
+      if (intervalRef.current !== null) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+  }, [isActive]);
 
   const latestRender = useMemo(() => {
     const fromEntries = entries.slice().reverse().find((e) => e.kind === 'render')?.render;
     return fromEntries ?? renders[renders.length - 1];
   }, [entries, renders]);
+  const displayMode: ShellMode = mode;
 
   if (!guestTokenReady) {
     return (
@@ -188,26 +220,51 @@ export function FullscreenShell({ agentEndpoint, sandboxUrl }: FullscreenShellPr
   }
 
   return (
-    <div className="shell" data-testid="fullscreen-shell" data-mode={mode} data-testid-mode={`shell-mode-${mode}`}>
-      {mode === 'idle' && (
-        <div className="shell-idle" data-testid="shell-mode-idle">
-          <p>필요한 순간을 말하면 바로 실행 가능한 UI로 준비할게요</p>
-        </div>
+    <div className="shell" data-testid="fullscreen-shell" data-mode={displayMode} data-testid-mode={`shell-mode-${displayMode}`}>
+      {displayMode === 'idle' && (
+        <CalendarHome onQuickSend={(text) => { void send(text); }} />
       )}
-      {mode === 'tooling' && (
-        <div data-testid="shell-mode-tooling">
-          <ToolCardStack entries={entries} />
-        </div>
+      {(mode === 'thinking' || mode === 'tooling' || mode === 'generating') && (
+        <main className="ambient-screen" data-testid={`shell-mode-${mode}`}>
+          <section className="ambient-panel" aria-busy="true">
+            <div className="ambient-orb" aria-hidden="true" />
+            <p className="ambient-eyebrow">
+              {mode === 'thinking' && 'Processing'}
+              {mode === 'tooling' && 'Collecting'}
+              {mode === 'generating' && 'Generating'}
+            </p>
+            <h1>
+              {mode === 'thinking' && '요청을 분석하고 있어요'}
+              {mode === 'tooling' && '필요한 정보를 수집하고 있어요'}
+              {mode === 'generating' && 'UI를 생성하고 있어요'}
+            </h1>
+            <p className="ambient-copy">
+              {mode === 'thinking' && '필요한 도구와 정보를 확인하고 있습니다.'}
+              {mode === 'tooling' && '외부 서비스에서 데이터를 가져오고 있습니다.'}
+              {mode === 'generating' && '맞춤형 화면을 구성하고 있습니다.'}
+            </p>
+            <div className="phase-steps" aria-label="Progress phases">
+              <span className={`phase-step ${mode === 'thinking' ? 'phase-step--active' : 'phase-step--done'}`}>분석</span>
+              <span className={`phase-step ${mode === 'tooling' ? 'phase-step--active' : mode === 'generating' ? 'phase-step--done' : ''}`}>수집</span>
+              <span className={`phase-step ${mode === 'generating' ? 'phase-step--active' : ''}`}>생성</span>
+            </div>
+            <ToolCardStack entries={entries} />
+            {elapsed > 0 && (
+              <p className="elapsed-time">{elapsed}s</p>
+            )}
+            {elapsed >= 45 && elapsed < 90 && (
+              <p className="reassurance-text">복잡한 화면은 시간이 조금 더 걸릴 수 있어요</p>
+            )}
+            {elapsed >= 90 && (
+              <p className="reassurance-text">
+                예상보다 오래 걸리고 있어요.{' '}
+                <button className="retry-link" onClick={() => abort()}>취소하고 다시 시도</button>
+              </p>
+            )}
+          </section>
+        </main>
       )}
-      {mode === 'generating' && (
-        <div className="card-stack" data-testid="shell-mode-generating">
-          <div className="generating-card">
-            <div className="spinner" />
-            <span>생성 중…</span>
-          </div>
-        </div>
-      )}
-      {mode === 'presenting' && latestRender && (
+      {displayMode === 'presenting' && latestRender && (
         <div className="iframe-container" data-testid="ggui-iframe-container">
           <ResourceFrame
             item={latestRender}
@@ -221,8 +278,9 @@ export function FullscreenShell({ agentEndpoint, sandboxUrl }: FullscreenShellPr
       {mode === 'error' && (
         <div className="card-stack" data-testid="shell-mode-error">
           <div className="error-card">
-            오류가 발생했습니다. 다시 시도해 주세요.
+            화면 생성에 실패했습니다. 잠시 후 다시 시도해 주세요.
           </div>
+          <ToolCardStack entries={entries} />
         </div>
       )}
       <TextInputModal
@@ -234,16 +292,58 @@ export function FullscreenShell({ agentEndpoint, sandboxUrl }: FullscreenShellPr
   );
 }
 
-function deriveMode(entries: ReadonlyArray<ChatEntry>): ShellMode {
+function CalendarHome({ onQuickSend }: { readonly onQuickSend: (text: string) => void }) {
+  const schedule = [
+    { time: '09:30', title: 'Morning planning', meta: '오늘 우선순위 정리' },
+    { time: '15:00', title: 'Invoice deadline', meta: '보내기 전 리마인드 필요' },
+    { time: '18:30', title: 'Dinner window', meta: '퇴근 동선 근처 추천 가능' },
+  ];
+  const actions = [
+    '오후 3시 전에 인보이스 보내기 화면 열어줘',
+    '오늘 일정 중 비는 시간 찾아줘',
+  ];
+
+  return (
+    <main className="calendar-home" data-testid="calendar-home">
+      <section className="calendar-hero">
+        <p className="ambient-eyebrow">Calendar Home</p>
+        <h1>오늘 필요한 화면은 일정에서 시작해요</h1>
+        <p>Jium은 채팅 대신 지금 맥락에 맞는 행동 UI를 바로 띄웁니다.</p>
+      </section>
+      <section className="calendar-timeline" aria-label="Today timeline">
+        {schedule.map((item) => (
+          <article className="calendar-event" key={`${item.time}-${item.title}`}>
+            <time>{item.time}</time>
+            <div>
+              <h2>{item.title}</h2>
+              <p>{item.meta}</p>
+            </div>
+          </article>
+        ))}
+      </section>
+      <section className="calendar-actions" aria-label="Suggested actions">
+        {actions.map((action) => (
+          <button key={action} type="button" onClick={() => onQuickSend(action)}>{action}</button>
+        ))}
+      </section>
+    </main>
+  );
+}
+
+function deriveMode(entries: ReadonlyArray<ChatEntry>, sending: boolean): ShellMode {
   if (entries.some((e) => e.kind === 'error')) return 'error';
   if (entries.some((e) => e.kind === 'render')) return 'presenting';
   const toolCalls = entries.filter((e) => e.kind === 'tool-call');
   if (toolCalls.length > 0) {
+    if (toolCalls.some((e) => e.kind === 'tool-call' && e.isError === true)) return 'error';
     const hasPending = toolCalls.some(
       (e) => e.kind === 'tool-call' && e.result === undefined && e.isError !== true
     );
     return hasPending ? 'tooling' : 'generating';
   }
+  // Agent is processing but no tool calls or renders yet — show thinking state.
+  // This covers the gap between POST and first SSE event (LLM inference time).
+  if (sending) return 'thinking';
   return 'idle';
 }
 
@@ -384,7 +484,7 @@ function ResourceFrame({
   // is the sole party that recognizes + guards `ai.ggui/*` keys.
 
   return (
-    <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <div className="resource-frame-host">
       {rendererHtml !== undefined ? (
         <AppRenderer
           key={item.resourceUri}
