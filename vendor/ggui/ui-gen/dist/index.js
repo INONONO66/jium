@@ -196949,38 +196949,32 @@ var init_llm_router = __esm({
         let allText = "";
         for (let turn = 0; turn < maxTurns; turn++) {
           const response = await this.apiCall(
-            () => client.responses.create({
+            () => client.chat.completions.create({
               model: resolvedModel,
-              instructions: systemPrompt,
-              input: input2,
+              messages,
               tools: openaiTools
             })
           );
-          totalIn += response.usage?.input_tokens ?? 0;
-          totalOut += response.usage?.output_tokens ?? 0;
-          const functionCalls = response.output.filter(
-            (o) => o.type === "function_call"
-          );
-          for (const item of response.output) {
-            if (item.type === "message") {
-              for (const part of item.content) {
-                if (part.type === "output_text") allText += part.text;
-              }
-            }
+          totalIn += response.usage?.prompt_tokens ?? 0;
+          totalOut += response.usage?.completion_tokens ?? 0;
+          const message = response.choices[0]?.message;
+          if (message) {
+            messages.push(message);
+            allText += message.content ?? "";
           }
+          const functionCalls = (message?.tool_calls ?? []).filter(
+            (fc) => fc.type === "function"
+          );
           if (functionCalls.length === 0) break;
-          input2 = [
-            ...response.output
-          ];
           for (const fc of functionCalls) {
-            const tool2 = tools.find((t3) => t3.name === fc.name);
+            const tool2 = tools.find((t3) => t3.name === fc.function.name);
             const result = tool2 ? await tool2.handler(
-              JSON.parse(fc.arguments ?? "{}")
-            ) : { content: [{ text: `Tool '${fc.name}' not found` }] };
-            input2.push({
-              type: "function_call_output",
-              call_id: fc.call_id,
-              output: result.content[0]?.text ?? ""
+              JSON.parse(fc.function.arguments || "{}")
+            ) : { content: [{ text: `Tool '${fc.function.name}' not found` }] };
+            messages.push({
+              role: "tool",
+              tool_call_id: fc.id,
+              content: result.content[0]?.text ?? ""
             });
           }
         }
@@ -196988,10 +196982,14 @@ var init_llm_router = __esm({
           text: allText,
           inputTokens: totalIn,
           outputTokens: totalOut,
-          turnsUsed: input2.length
+          turnsUsed: messages.length
         };
       }
     };
+    function selectOpenAIMaxTokensField(model) {
+      const m = model.toLowerCase();
+      return m.startsWith("gpt-5") || m.startsWith("o1") || m.startsWith("o3") || m.startsWith("o4") ? "max_completion_tokens" : "max_tokens";
+    }
     GoogleAgent = class extends LLMAgent {
       provider = "google";
       resolveModel(model) {
