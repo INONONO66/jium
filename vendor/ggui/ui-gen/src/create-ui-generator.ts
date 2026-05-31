@@ -34,7 +34,6 @@
 import type {
   GadgetDescriptor,
   GenerationError,
-  JsonObject,
 } from '@ggui-ai/protocol';
 import type { GadgetCatalogAdapter } from '@ggui-ai/gadgets';
 import type {
@@ -53,6 +52,7 @@ import {
 import { createGeneratorTools } from './adapters/index.js';
 import { dispatchGeneration } from './adapters/generation-dispatch.js';
 import type { ProviderName } from './adapters/types.js';
+import { compileComponentCode } from './compile.js';
 import {
   injectContracts,
   injectRenderingContext,
@@ -67,6 +67,8 @@ const DEFAULT_MAX_TURNS = 10;
 /** The slug for the OSS default seed generator. */
 const DEFAULT_TIER: GeneratorTier = 'default';
 const DEFAULT_MODEL = 'haiku-4-5';
+
+let generationEnvLock: Promise<void> = Promise.resolve();
 
 export interface CreateUiGeneratorOptions {
   /**
@@ -197,24 +199,50 @@ export function createUiGenerator(
         });
       }
 
-      const envBackup: Record<string, string | undefined> = {};
-      for (const k of Object.keys(route.env)) envBackup[k] = process.env[k];
-      const baseEnvForApply: Record<string, string> = {};
-      for (const [k, v] of Object.entries(process.env)) {
-        if (v !== undefined) baseEnvForApply[k] = v;
-      }
-      const routedEnv = applyRouteToEnv(baseEnvForApply, route);
-      for (const [k, v] of Object.entries(routedEnv)) process.env[k] = v;
-      // Also delete any keys the route asked to clear (route.env values
-      // marked undefined).
-      for (const [k, v] of Object.entries(route.env)) {
-        if (v === undefined) delete process.env[k];
-      }
+      return withGenerationEnvLock(async () => {
+        const envBackup: Record<string, string | undefined> = {};
+        for (const k of Object.keys(route.env)) envBackup[k] = process.env[k];
+        const baseEnvForApply: Record<string, string> = {};
+        for (const [k, v] of Object.entries(process.env)) {
+          if (v !== undefined) baseEnvForApply[k] = v;
+        }
+        const routedEnv = applyRouteToEnv(baseEnvForApply, route);
+        for (const [k, v] of Object.entries(routedEnv)) process.env[k] = v;
+        // Also delete any keys the route asked to clear (route.env values
+        // marked undefined).
+        for (const [k, v] of Object.entries(route.env)) {
+          if (v === undefined) delete process.env[k];
+        }
 
-      try {
-        const tools = createGeneratorTools({
-          ...(input.contract ? { contract: input.contract } : {}),
-        });
+        try {
+          if (provider === 'openai') {
+            const generated = await generateOpenAiComponentSource(input, route.model);
+            const sourceCode = buildOpenAiSpecComponent(generated.spec);
+            const compiled = await compileComponentCode(sourceCode);
+            const metadata: GenerationMetadata = {
+              provider: input.llm.provider,
+              model: input.llm.model,
+              inputTokens: generated.inputTokens,
+              outputTokens: generated.outputTokens,
+              latencyMs: Date.now() - startedAt,
+              cacheHit: false,
+              attempts: 1,
+            };
+            return {
+              ok: true,
+              response: {
+                renderId: `render_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+                componentCode: compiled,
+                sourceCode,
+                ...(input.contract ? { contract: input.contract } : {}),
+              },
+              metadata,
+            };
+          }
+
+          const tools = createGeneratorTools({
+            ...(input.contract ? { contract: input.contract } : {}),
+          });
 
         // Build the user prompt: prompt → rendering context → variance
         // → contract block. Variance lands BEFORE the contract block so
@@ -297,35 +325,147 @@ export function createUiGenerator(
           },
           metadata,
         };
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        const details: JsonObject = { kind: 'harness-failed' };
-        if (err instanceof Error && err.stack) details['stack'] = err.stack;
-        return {
-          ok: false,
-          error: {
+        } catch (err) {
+          return failWithoutMetadata(input, startedAt, {
             code: 'PRODUCTION_FAILED',
-            message,
-            details,
-          },
-          metadata: {
-            provider: input.llm.provider,
-            model: input.llm.model,
-            inputTokens: 0,
-            outputTokens: 0,
-            latencyMs: Date.now() - startedAt,
-            cacheHit: false,
-          },
-        };
-      } finally {
-        // Restore env to its pre-call state.
-        for (const [k, v] of Object.entries(envBackup)) {
-          if (v === undefined) delete process.env[k];
-          else process.env[k] = v;
+            message: err instanceof Error ? err.message : String(err),
+          });
+        } finally {
+          // Restore env to its pre-call state.
+          for (const [k, v] of Object.entries(envBackup)) {
+            if (v === undefined) delete process.env[k];
+            else process.env[k] = v;
+          }
         }
-      }
+      });
     },
   };
+}
+
+async function withGenerationEnvLock<T>(fn: () => Promise<T>): Promise<T> {
+  const previous = generationEnvLock;
+  let release: () => void = () => {};
+  generationEnvLock = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await previous;
+  try {
+    return await fn();
+  } finally {
+    release();
+  }
+}
+
+async function generateOpenAiComponentSource(
+  input: UiGenerateInput,
+  model: string,
+): Promise<{ spec: OpenAiUiSpec; inputTokens: number; outputTokens: number }> {
+  const baseUrl = (process.env.OPENAI_BASE_URL ?? process.env.BASE_URL)?.replace(/\/$/, '');
+  if (!baseUrl) throw new Error('OPENAI_BASE_URL is required for OpenAI generation');
+  const response = await fetch(`${baseUrl}/chat/completions`, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      authorization: `Bearer ${process.env.OPENAI_API_KEY ?? ''}`,
+    },
+    body: JSON.stringify({
+      model,
+      messages: [
+        { role: 'user', content: buildDirectOpenAiSpecPrompt(input) },
+      ],
+      max_completion_tokens: 1200,
+    }),
+  });
+  const text = await response.text();
+  if (!response.ok) {
+    throw new Error(`OpenAI generation failed (${response.status}): ${text.slice(0, 240)}`);
+  }
+  const json = JSON.parse(text) as {
+    choices?: Array<{ message?: { content?: string | null } }>;
+    usage?: { prompt_tokens?: number; completion_tokens?: number };
+  };
+  const content = json.choices?.[0]?.message?.content ?? '';
+  const spec = parseOpenAiUiSpec(content);
+  return {
+    spec,
+    inputTokens: json.usage?.prompt_tokens ?? 0,
+    outputTokens: json.usage?.completion_tokens ?? 0,
+  };
+}
+
+interface OpenAiUiSpec {
+  title: string;
+  subtitle?: string;
+  theme?: { bg?: string; fg?: string; accent?: string };
+  cards?: Array<{ label?: string; value?: string; detail?: string }>;
+  actions?: string[];
+}
+
+function buildDirectOpenAiSpecPrompt(input: UiGenerateInput): string {
+  return [
+    'Return only compact JSON for a polished fullscreen mobile UI.',
+    'Shape: {"title":"...","subtitle":"...","theme":{"bg":"#...","fg":"#...","accent":"#..."},"cards":[{"label":"...","value":"...","detail":"..."}],"actions":["..."]}.',
+    'Use Korean copy when the request is Korean. Make 4 to 6 cards and 1 to 3 actions.',
+    input.request.prompt,
+  ].join(' ');
+}
+
+function parseOpenAiUiSpec(content: string): OpenAiUiSpec {
+  const cleaned = content.trim().replace(/^```(?:json)?\s*/i, '').replace(/```$/i, '').trim();
+  const parsed = JSON.parse(cleaned) as OpenAiUiSpec;
+  if (!parsed || typeof parsed.title !== 'string') {
+    throw new Error('OpenAI generation returned invalid UI JSON');
+  }
+  return parsed;
+}
+
+function buildOpenAiSpecComponent(spec: OpenAiUiSpec): string {
+  const normalized: Required<OpenAiUiSpec> = {
+    title: spec.title,
+    subtitle: spec.subtitle ?? '',
+    theme: {
+      bg: spec.theme?.bg ?? '#0B1220',
+      fg: spec.theme?.fg ?? '#F8FAFC',
+      accent: spec.theme?.accent ?? '#38BDF8',
+    },
+    cards: (spec.cards?.length ? spec.cards : [{ label: '요약', value: spec.title, detail: spec.subtitle ?? '' }]).slice(0, 6),
+    actions: (spec.actions?.length ? spec.actions : ['새로고침']).slice(0, 3),
+  };
+  return `const spec = ${JSON.stringify(normalized)};
+
+export default function GeneratedOpenAiSurface() {
+  const cards = spec.cards;
+  return (
+    <main style={{ minHeight: '100dvh', width: '100%', boxSizing: 'border-box', padding: 22, color: spec.theme.fg, background: 'radial-gradient(circle at 18% 10%, ' + spec.theme.accent + '44, transparent 34%), linear-gradient(160deg, ' + spec.theme.bg + ', #050816 78%)', fontFamily: 'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif', display: 'flex', flexDirection: 'column', gap: 18, overflow: 'hidden' }}>
+      <section style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16 }}>
+        <div>
+          <p style={{ margin: '0 0 8px', color: spec.theme.accent, fontSize: 13, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Jium Live Surface</p>
+          <h1 style={{ margin: 0, fontSize: 38, lineHeight: 1.02, letterSpacing: '-0.06em', maxWidth: 290 }}>{spec.title}</h1>
+          {spec.subtitle ? <p style={{ margin: '12px 0 0', color: 'rgba(248,250,252,.76)', fontSize: 15, lineHeight: 1.45 }}>{spec.subtitle}</p> : null}
+        </div>
+        <div style={{ width: 54, height: 54, borderRadius: 20, background: 'rgba(255,255,255,.13)', border: '1px solid rgba(255,255,255,.18)', display: 'grid', placeItems: 'center', boxShadow: '0 18px 48px rgba(0,0,0,.24)' }}>
+          <span style={{ width: 18, height: 18, borderRadius: 999, background: spec.theme.accent, boxShadow: '0 0 28px ' + spec.theme.accent }} />
+        </div>
+      </section>
+      <section style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, flex: '1 1 auto', minHeight: 0 }}>
+        {cards.map((card, index) => (
+          <article key={index} style={{ borderRadius: 28, padding: 18, background: index === 0 ? 'linear-gradient(145deg, rgba(255,255,255,.24), rgba(255,255,255,.10))' : 'rgba(255,255,255,.10)', border: '1px solid rgba(255,255,255,.16)', boxShadow: '0 22px 60px rgba(0,0,0,.22)', backdropFilter: 'blur(18px)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: index === 0 ? 160 : 128, gridColumn: index === 0 ? 'span 2' : 'span 1' }}>
+            <p style={{ margin: 0, color: 'rgba(248,250,252,.68)', fontSize: 13, fontWeight: 700 }}>{card.label}</p>
+            <div>
+              <strong style={{ display: 'block', marginTop: 14, fontSize: index === 0 ? 44 : 26, lineHeight: 1, letterSpacing: '-0.05em' }}>{card.value}</strong>
+              {card.detail ? <p style={{ margin: '10px 0 0', color: 'rgba(248,250,252,.72)', fontSize: 13, lineHeight: 1.35 }}>{card.detail}</p> : null}
+            </div>
+          </article>
+        ))}
+      </section>
+      <footer style={{ display: 'flex', gap: 10, paddingBottom: 4 }}>
+        {spec.actions.map((action, index) => (
+          <button key={action} style={{ flex: 1, border: 0, borderRadius: 999, padding: '14px 12px', color: index === 0 ? '#06111f' : spec.theme.fg, background: index === 0 ? spec.theme.accent : 'rgba(255,255,255,.12)', fontWeight: 850, boxShadow: index === 0 ? '0 18px 44px ' + spec.theme.accent + '44' : 'none' }}>{action}</button>
+        ))}
+      </footer>
+    </main>
+  );
+}`;
 }
 
 function resolveIdentity(opts: CreateUiGeneratorOptions): {

@@ -285608,6 +285608,7 @@ init_provider_router();
 var DEFAULT_MAX_TURNS2 = 10;
 var DEFAULT_TIER = "default";
 var DEFAULT_MODEL = "haiku-4-5";
+var generationEnvLock = Promise.resolve();
 function createUiGenerator(options = {}) {
   const {
     enableRuntimeRender = false,
@@ -285643,18 +285644,43 @@ function createUiGenerator(options = {}) {
           details: { kind: "route-resolution-failed" }
         });
       }
-      const envBackup = {};
-      for (const k2 of Object.keys(route.env)) envBackup[k2] = process.env[k2];
-      const baseEnvForApply = {};
-      for (const [k2, v8] of Object.entries(process.env)) {
-        if (v8 !== void 0) baseEnvForApply[k2] = v8;
-      }
-      const routedEnv = applyRouteToEnv(baseEnvForApply, route);
-      for (const [k2, v8] of Object.entries(routedEnv)) process.env[k2] = v8;
-      for (const [k2, v8] of Object.entries(route.env)) {
-        if (v8 === void 0) delete process.env[k2];
-      }
-      try {
+      return withGenerationEnvLock(async () => {
+        const envBackup = {};
+        for (const k2 of Object.keys(route.env)) envBackup[k2] = process.env[k2];
+        const baseEnvForApply = {};
+        for (const [k2, v8] of Object.entries(process.env)) {
+          if (v8 !== void 0) baseEnvForApply[k2] = v8;
+        }
+        const routedEnv = applyRouteToEnv(baseEnvForApply, route);
+        for (const [k2, v8] of Object.entries(routedEnv)) process.env[k2] = v8;
+        for (const [k2, v8] of Object.entries(route.env)) {
+          if (v8 === void 0) delete process.env[k2];
+        }
+        try {
+          if (provider === "openai") {
+            const generated = await generateOpenAiComponentSource(input2, route.model);
+            const sourceCode = buildOpenAiSpecComponent(generated.spec);
+            const compiled = await compileComponentCode(sourceCode);
+            const metadata6 = {
+              provider: input2.llm.provider,
+              model: input2.llm.model,
+              inputTokens: generated.inputTokens,
+              outputTokens: generated.outputTokens,
+              latencyMs: Date.now() - startedAt,
+              cacheHit: false,
+              attempts: 1
+            };
+            return {
+              ok: true,
+              response: {
+                renderId: `render_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+                componentCode: compiled,
+                sourceCode,
+                ...input2.contract ? { contract: input2.contract } : {}
+              },
+              metadata: metadata6
+            };
+          }
         const tools = createGeneratorTools({
           ...input2.contract ? { contract: input2.contract } : {}
         });
@@ -285708,34 +285734,127 @@ function createUiGenerator(options = {}) {
           },
           metadata: metadata6
         };
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        const details = { kind: "harness-failed" };
-        if (err instanceof Error && err.stack) details["stack"] = err.stack;
-        return {
-          ok: false,
-          error: {
+        } catch (err) {
+          return failWithoutMetadata(input2, startedAt, {
             code: "PRODUCTION_FAILED",
-            message,
-            details
-          },
-          metadata: {
-            provider: input2.llm.provider,
-            model: input2.llm.model,
-            inputTokens: 0,
-            outputTokens: 0,
-            latencyMs: Date.now() - startedAt,
-            cacheHit: false
+            message: err instanceof Error ? err.message : String(err)
+          });
+        } finally {
+          for (const [k2, v8] of Object.entries(envBackup)) {
+            if (v8 === void 0) delete process.env[k2];
+            else process.env[k2] = v8;
           }
-        };
-      } finally {
-        for (const [k2, v8] of Object.entries(envBackup)) {
-          if (v8 === void 0) delete process.env[k2];
-          else process.env[k2] = v8;
         }
-      }
+      });
     }
   };
+}
+async function generateOpenAiComponentSource(input2, model) {
+  const baseUrl = (process.env.OPENAI_BASE_URL ?? process.env.BASE_URL)?.replace(/\/$/, "");
+  if (!baseUrl) throw new Error("OPENAI_BASE_URL is required for OpenAI generation");
+  const response = await fetch(`${baseUrl}/chat/completions`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${process.env.OPENAI_API_KEY ?? ""}`
+    },
+    body: JSON.stringify({
+      model,
+      messages: [
+        { role: "user", content: buildDirectOpenAiSpecPrompt(input2) }
+      ],
+      max_completion_tokens: 1200
+    })
+  });
+  const text = await response.text();
+  if (!response.ok) {
+    throw new Error(`OpenAI generation failed (${response.status}): ${text.slice(0, 240)}`);
+  }
+  const json = JSON.parse(text);
+  const content = json.choices?.[0]?.message?.content ?? "";
+  const spec = parseOpenAiUiSpec(content);
+  return {
+    spec,
+    inputTokens: json.usage?.prompt_tokens ?? 0,
+    outputTokens: json.usage?.completion_tokens ?? 0
+  };
+}
+function buildDirectOpenAiSpecPrompt(input2) {
+  return [
+    "Return only compact JSON for a polished fullscreen mobile UI.",
+    'Shape: {"title":"...","subtitle":"...","theme":{"bg":"#...","fg":"#...","accent":"#..."},"cards":[{"label":"...","value":"...","detail":"..."}],"actions":["..."]}.',
+    "Use Korean copy when the request is Korean. Make 4 to 6 cards and 1 to 3 actions.",
+    input2.request.prompt
+  ].join(" ");
+}
+function parseOpenAiUiSpec(content) {
+  const cleaned = content.trim().replace(/^```(?:json)?\s*/i, "").replace(/```$/i, "").trim();
+  const parsed = JSON.parse(cleaned);
+  if (!parsed || typeof parsed.title !== "string") {
+    throw new Error("OpenAI generation returned invalid UI JSON");
+  }
+  return parsed;
+}
+function buildOpenAiSpecComponent(spec) {
+  const normalized = {
+    title: spec.title,
+    subtitle: spec.subtitle ?? "",
+    theme: {
+      bg: spec.theme?.bg ?? "#0B1220",
+      fg: spec.theme?.fg ?? "#F8FAFC",
+      accent: spec.theme?.accent ?? "#38BDF8"
+    },
+    cards: (spec.cards?.length ? spec.cards : [{ label: "요약", value: spec.title, detail: spec.subtitle ?? "" }]).slice(0, 6),
+    actions: (spec.actions?.length ? spec.actions : ["새로고침"]).slice(0, 3)
+  };
+  return `const spec = ${JSON.stringify(normalized)};
+
+export default function GeneratedOpenAiSurface() {
+  const cards = spec.cards;
+  return (
+    <main style={{ minHeight: '100dvh', width: '100%', boxSizing: 'border-box', padding: 22, color: spec.theme.fg, background: 'radial-gradient(circle at 18% 10%, ' + spec.theme.accent + '44, transparent 34%), linear-gradient(160deg, ' + spec.theme.bg + ', #050816 78%)', fontFamily: 'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif', display: 'flex', flexDirection: 'column', gap: 18, overflow: 'hidden' }}>
+      <section style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16 }}>
+        <div>
+          <p style={{ margin: '0 0 8px', color: spec.theme.accent, fontSize: 13, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Jium Live Surface</p>
+          <h1 style={{ margin: 0, fontSize: 38, lineHeight: 1.02, letterSpacing: '-0.06em', maxWidth: 290 }}>{spec.title}</h1>
+          {spec.subtitle ? <p style={{ margin: '12px 0 0', color: 'rgba(248,250,252,.76)', fontSize: 15, lineHeight: 1.45 }}>{spec.subtitle}</p> : null}
+        </div>
+        <div style={{ width: 54, height: 54, borderRadius: 20, background: 'rgba(255,255,255,.13)', border: '1px solid rgba(255,255,255,.18)', display: 'grid', placeItems: 'center', boxShadow: '0 18px 48px rgba(0,0,0,.24)' }}>
+          <span style={{ width: 18, height: 18, borderRadius: 999, background: spec.theme.accent, boxShadow: '0 0 28px ' + spec.theme.accent }} />
+        </div>
+      </section>
+      <section style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, flex: '1 1 auto', minHeight: 0 }}>
+        {cards.map((card, index) => (
+          <article key={index} style={{ borderRadius: 28, padding: 18, background: index === 0 ? 'linear-gradient(145deg, rgba(255,255,255,.24), rgba(255,255,255,.10))' : 'rgba(255,255,255,.10)', border: '1px solid rgba(255,255,255,.16)', boxShadow: '0 22px 60px rgba(0,0,0,.22)', backdropFilter: 'blur(18px)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: index === 0 ? 160 : 128, gridColumn: index === 0 ? 'span 2' : 'span 1' }}>
+            <p style={{ margin: 0, color: 'rgba(248,250,252,.68)', fontSize: 13, fontWeight: 700 }}>{card.label}</p>
+            <div>
+              <strong style={{ display: 'block', marginTop: 14, fontSize: index === 0 ? 44 : 26, lineHeight: 1, letterSpacing: '-0.05em' }}>{card.value}</strong>
+              {card.detail ? <p style={{ margin: '10px 0 0', color: 'rgba(248,250,252,.72)', fontSize: 13, lineHeight: 1.35 }}>{card.detail}</p> : null}
+            </div>
+          </article>
+        ))}
+      </section>
+      <footer style={{ display: 'flex', gap: 10, paddingBottom: 4 }}>
+        {spec.actions.map((action, index) => (
+          <button key={action} style={{ flex: 1, border: 0, borderRadius: 999, padding: '14px 12px', color: index === 0 ? '#06111f' : spec.theme.fg, background: index === 0 ? spec.theme.accent : 'rgba(255,255,255,.12)', fontWeight: 850, boxShadow: index === 0 ? '0 18px 44px ' + spec.theme.accent + '44' : 'none' }}>{action}</button>
+        ))}
+      </footer>
+    </main>
+  );
+}`;
+}
+async function withGenerationEnvLock(fn) {
+  const previous = generationEnvLock;
+  let release = () => {};
+  generationEnvLock = new Promise((resolve) => {
+    release = resolve;
+  });
+  await previous;
+  try {
+    return await fn();
+  } finally {
+    release();
+  }
 }
 function resolveIdentity(opts) {
   const hasSlug = typeof opts.slug === "string" && opts.slug.length > 0;
