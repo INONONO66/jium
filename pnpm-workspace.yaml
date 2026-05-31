@@ -19,3 +19,5 @@ allowBuilds:
   protobufjs: true
   sharp: true
   sqlite3: false
+patchedDependencies:
+  '@ggui-ai/mcp-server-handlers@0.2.0-alpha.4': patches/@ggui-ai__mcp-server-handlers@0.2.0-alpha.4.patch

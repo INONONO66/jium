@@ -179,6 +179,16 @@ export class FullResultMcpServerStreamableHttp extends MCPServerStreamableHttp {
         (rpc as { error?: { message?: string } }).error?.message ??
           'MCP tools/call returned error envelope',
       );
+      if (toolName === 'ggui_render') {
+        const result = {
+          isError: true,
+          content: [{ type: 'text', text: errMsg }],
+        } satisfies McpCallToolResult;
+        const queue = fullResultQueues.get(this.serverName) ?? [];
+        queue.push(result);
+        fullResultQueues.set(this.serverName, queue);
+        return result.content as Array<{ readonly type: string; readonly text: string }>;
+      }
       throw new Error(`MCP tools/call ${toolName} failed: ${errMsg}`);
     }
     const result = (rpc as { result?: McpCallToolResult }).result;

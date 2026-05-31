@@ -7,6 +7,9 @@ settings:
 overrides:
   '@ggui-ai/ui-gen': workspace:*
 
+patchedDependencies:
+  '@ggui-ai/mcp-server-handlers@0.2.0-alpha.4': 332997b0a0dad1b680aab7c68c53c6fa53ab7ffa8aa92a5f1f806eb1e892eab7
+
 importers:
 
   .:
@@ -2619,6 +2622,9 @@ packages:
 
   '@types/node@24.12.4':
     resolution: {integrity: sha512-GUUEShf+PBCGW2KaXwcIt3Yk+e3pkKwWKb9GSyM9WQVE+ep2jzmHdGsHzu4wgcZy5fN9FBdVzjpBQsYlpfpgLA==}
+
+  '@types/pg@8.20.0':
+    resolution: {integrity: sha512-bEPFOaMAHTEP1EzpvHTbmwR8UsFyHSKsRisLIHVMXnpNefSbGA1bD6CVy+qKjGSqmZqNqBDV2azOBo8TgkcVow==}
 
   '@types/react-dom@19.2.3':
     resolution: {integrity: sha512-jp2L/eY6fn+KgVVQAOqYItbF0VY/YApe5Mz2F0aykSO8gx31bYCZyvSeYxCHKvzHG5eZjc+zyaS5BrBWya2+kQ==}
@@ -6862,7 +6868,7 @@ snapshots:
       '@ggui-ai/iframe-runtime': 0.2.0-alpha.4(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(zod@4.4.3)
       '@ggui-ai/mcp-server': 0.2.0-alpha.4(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
       '@ggui-ai/mcp-server-core': 0.2.0-alpha.4(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
-      '@ggui-ai/mcp-server-handlers': 0.2.0-alpha.4(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(zod@4.4.3)
+      '@ggui-ai/mcp-server-handlers': 0.2.0-alpha.4(patch_hash=332997b0a0dad1b680aab7c68c53c6fa53ab7ffa8aa92a5f1f806eb1e892eab7)(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(zod@4.4.3)
       '@ggui-ai/preview-a2ui': 0.2.0-alpha.4
       '@ggui-ai/project-config': 0.2.0-alpha.4(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
       '@ggui-ai/protocol': 0.2.0-alpha.4(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)

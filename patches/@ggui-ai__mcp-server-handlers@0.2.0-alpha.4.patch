@@ -1,0 +1,26 @@
+diff --git a/dist/renders/render.js b/dist/renders/render.js
+index eeb8ec79be968910213aeba55d9024594311a012..ad037309b964379c1d60bd1dfbccc939e50f28e6 100644
+--- a/dist/renders/render.js
++++ b/dist/renders/render.js
+@@ -819,6 +819,12 @@ export function createGguiRenderHandler(deps) {
+                         ...(parsed.infra !== undefined ? { infra: parsed.infra } : {}),
+                     });
+                     generatedCodeReady = outcome.ok;
++                    if (!outcome.ok) {
++                        const reason = typeof outcome.error === 'string' && outcome.error.length > 0
++                            ? outcome.error
++                            : 'UI generation failed';
++                        throw new Error(`ggui_render: ${reason}`);
++                    }
+                     if (deps.generation.cache) {
+                         _cacheMarker = {
+                             hit: false,
+@@ -1482,7 +1488,7 @@ async function commitErrorRender(renderStore, previewDeps, channelNotifier, args
+         safelyNotifyRenderCommit(channelNotifier, args.renderId, errorRender);
+     }
+     await safelyFinalizePreview(previewDeps, args.renderId, args.reason);
+-    return { ok: false, createdAt: args.nowIso };
++    return { ok: false, createdAt: args.nowIso, error: args.message };
+ }
+ /**
+  * Best-effort fire of {@link ChannelNotifier.notifyRenderCommit}.
