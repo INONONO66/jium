@@ -15,10 +15,7 @@ import type {
   ToolUseBlock,
 } from '@anthropic-ai/sdk/resources/messages';
 import type OpenAI from 'openai';
-import type {
-  Response as OpenAIResponse,
-  ResponseFunctionToolCall,
-} from 'openai/resources/responses/responses';
+import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
 import type {
   GoogleGenAI,
   Interactions,
@@ -669,7 +666,10 @@ export class OpenAIAgent extends LLMAgent {
 
   protected async createClient(): Promise<OpenAI> {
     const { default: OpenAISDK } = await import('openai');
-    return new OpenAISDK({ apiKey: process.env.OPENAI_API_KEY });
+    return new OpenAISDK({
+      apiKey: process.env.OPENAI_API_KEY,
+      baseURL: resolveOpenAIBaseURL(),
+    });
   }
 
   async callText(
@@ -679,28 +679,21 @@ export class OpenAIAgent extends LLMAgent {
     maxTokens?: number,
   ): Promise<LLMResponse> {
     const client = await this.getClient<OpenAI>();
-    const response: OpenAIResponse = await this.apiCall(() =>
-      client.responses.create({
+    const response = await this.apiCall(() =>
+      client.chat.completions.create({
         model: this.resolveModel(model),
-        instructions: systemPrompt,
-        input: [{ role: 'user', content: userPrompt }],
-        ...(maxTokens && { max_output_tokens: maxTokens }),
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        ...(maxTokens && { [selectOpenAIMaxTokensField(model)]: maxTokens }),
       }),
     );
 
-    let text = '';
-    for (const item of response.output) {
-      if (item.type === 'message') {
-        for (const part of item.content) {
-          if (part.type === 'output_text') text += part.text;
-        }
-      }
-    }
-
     return {
-      text,
-      inputTokens: response.usage?.input_tokens ?? 0,
-      outputTokens: response.usage?.output_tokens ?? 0,
+      text: response.choices[0]?.message.content ?? '',
+      inputTokens: response.usage?.prompt_tokens ?? 0,
+      outputTokens: response.usage?.completion_tokens ?? 0,
     };
   }
 
@@ -713,72 +706,69 @@ export class OpenAIAgent extends LLMAgent {
     _scopedTools?: LLMToolDef[],
   ): Promise<LLMToolCallResponse> {
     const client = await this.getClient<OpenAI>();
-    // strict: true enables constrained decoding — guarantees valid JSON matching the schema.
-    // Requires additionalProperties: false on all objects and all fields in required.
     const openaiTools = tools.map((t) => ({
       type: 'function' as const,
-      name: t.name,
-      description: t.description,
-      parameters: addStrictSchemaConstraints(t.parameters),
-      strict: true,
+      function: {
+        name: t.name,
+        description: t.description,
+        parameters: addStrictSchemaConstraints(t.parameters),
+        strict: false,
+      },
     }));
 
-    // Consume pending tool results — prepend to input for proper contract
-    const pending = this.pendingToolResults;
+    if (this.sessionMessages.length === 0) {
+      this.sessionMessages.push({ role: 'system', content: systemPrompt });
+    }
+    this.sessionMessages.push(...this.pendingToolResults);
     this.pendingToolResults = [];
-    const input = pending.length > 0
-      ? [...pending, { role: 'user' as const, content: userPrompt }]
-      : [{ role: 'user' as const, content: userPrompt }];
+    this.sessionMessages.push({ role: 'user', content: userPrompt });
 
-    const response: OpenAIResponse = await this.apiCall(() =>
-      client.responses.create({
+    const response = await this.apiCall(() =>
+      client.chat.completions.create({
         model: this.resolveModel(model),
-        instructions: systemPrompt,
-        input,
+        messages: this.sessionMessages,
         tools: openaiTools,
         tool_choice: toolChoice,
-        store: true, // Enable response storage + server-side chaining
-        ...(this.lastSessionId && { previous_response_id: this.lastSessionId }),
       }),
     );
 
-    // Save session ID for chaining subsequent calls
-    this.lastSessionId = response.id;
-
-    // Log cache utilization
-    const usage = response.usage;
-    if (usage) {
-      const cached = (usage as unknown as Record<string, unknown>).input_tokens_details as { cached_tokens?: number } | undefined;
-      if (cached?.cached_tokens) {
-        console.log(`[openai] session ${this.lastSessionId ? 'chained' : 'new'}: ${cached.cached_tokens} cached of ${usage.input_tokens} input`);
-      }
+    const message = response.choices[0]?.message;
+    const functionCalls = (message?.tool_calls ?? []).filter(
+      (fc) => fc.type === 'function',
+    ).slice(0, 1);
+    if (message) {
+      this.sessionMessages.push(
+        message.tool_calls !== undefined
+          ? { ...message, tool_calls: functionCalls }
+          : message,
+      );
     }
-
-    const functionCalls = response.output.filter(
-      (o): o is ResponseFunctionToolCall => o.type === 'function_call',
-    );
 
     return {
       toolCalls: functionCalls.map((fc) => ({
-        id: fc.call_id,
-        name: fc.name,
-        input: JSON.parse(fc.arguments ?? '{}') as JsonObject,
+        id: fc.id,
+        name: fc.function.name,
+        input: JSON.parse(fc.function.arguments || '{}') as JsonObject,
       })),
-      inputTokens: response.usage?.input_tokens ?? 0,
-      outputTokens: response.usage?.output_tokens ?? 0,
+      inputTokens: response.usage?.prompt_tokens ?? 0,
+      outputTokens: response.usage?.completion_tokens ?? 0,
     };
   }
 
-  // Pending tool results — stored by sendToolResult, consumed by next callTools
-  private pendingToolResults: OpenAI.Responses.ResponseInputItem[] = [];
+  private sessionMessages: ChatCompletionMessageParam[] = [];
+  private pendingToolResults: ChatCompletionMessageParam[] = [];
+
+  override resetSession(): void {
+    super.resetSession();
+    this.sessionMessages = [];
+    this.pendingToolResults = [];
+  }
 
   override async sendToolResult(results: LLMToolResult[]): Promise<void> {
-    // Store results locally — they'll be prepended to the next callTools input.
-    // No API call here! Saves a round-trip.
     this.pendingToolResults = results.map((r) => ({
-      type: 'function_call_output',
-      call_id: r.callId ?? '',
-      output: r.result,
+      role: 'tool',
+      tool_call_id: r.callId ?? '',
+      content: r.result,
     }));
   }
 
@@ -793,13 +783,16 @@ export class OpenAIAgent extends LLMAgent {
     const resolvedModel = this.resolveModel(model);
     const openaiTools = tools.map((t) => ({
       type: 'function' as const,
-      name: t.name,
-      description: t.description,
-      parameters: t.parameters,
-      strict: false,
+      function: {
+        name: t.name,
+        description: t.description,
+        parameters: t.parameters,
+        strict: false,
+      },
     }));
 
-    let input: OpenAI.Responses.ResponseInputItem[] = [
+    const messages: ChatCompletionMessageParam[] = [
+      { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt },
     ];
     let totalIn = 0;
@@ -807,44 +800,38 @@ export class OpenAIAgent extends LLMAgent {
     let allText = '';
 
     for (let turn = 0; turn < maxTurns; turn++) {
-      const response: OpenAIResponse = await this.apiCall(() =>
-        client.responses.create({
+      const response = await this.apiCall(() =>
+        client.chat.completions.create({
           model: resolvedModel,
-          instructions: systemPrompt,
-          input,
+          messages,
           tools: openaiTools,
         }),
       );
-      totalIn += response.usage?.input_tokens ?? 0;
-      totalOut += response.usage?.output_tokens ?? 0;
+      totalIn += response.usage?.prompt_tokens ?? 0;
+      totalOut += response.usage?.completion_tokens ?? 0;
 
-      const functionCalls = response.output.filter(
-        (o): o is ResponseFunctionToolCall => o.type === 'function_call',
-      );
-      for (const item of response.output) {
-        if (item.type === 'message') {
-          for (const part of item.content) {
-            if (part.type === 'output_text') allText += part.text;
-          }
-        }
+      const message = response.choices[0]?.message;
+      if (message) {
+        messages.push(message);
+        allText += message.content ?? '';
       }
+      const functionCalls = (message?.tool_calls ?? []).filter(
+        (fc) => fc.type === 'function',
+      );
 
       if (functionCalls.length === 0) break;
 
-      input = [
-        ...(response.output as OpenAI.Responses.ResponseInputItem[]),
-      ];
       for (const fc of functionCalls) {
-        const tool = tools.find((t) => t.name === fc.name);
+        const tool = tools.find((t) => t.name === fc.function.name);
         const result = tool
           ? await tool.handler(
-              JSON.parse(fc.arguments ?? '{}') as JsonObject,
+              JSON.parse(fc.function.arguments || '{}') as JsonObject,
             )
-          : { content: [{ text: `Tool '${fc.name}' not found` }] };
-        input.push({
-          type: 'function_call_output',
-          call_id: fc.call_id,
-          output: result.content[0]?.text ?? '',
+          : { content: [{ text: `Tool '${fc.function.name}' not found` }] };
+        messages.push({
+          role: 'tool',
+          tool_call_id: fc.id,
+          content: result.content[0]?.text ?? '',
         });
       }
     }
@@ -853,9 +840,20 @@ export class OpenAIAgent extends LLMAgent {
       text: allText,
       inputTokens: totalIn,
       outputTokens: totalOut,
-      turnsUsed: input.length,
+      turnsUsed: messages.length,
     };
   }
+}
+
+function resolveOpenAIBaseURL(): string | undefined {
+  return process.env.OPENAI_BASE_URL ?? process.env.BASE_URL;
+}
+
+function selectOpenAIMaxTokensField(model: string): 'max_tokens' | 'max_completion_tokens' {
+  const m = model.toLowerCase();
+  return m.startsWith('gpt-5') || m.startsWith('o1') || m.startsWith('o3') || m.startsWith('o4')
+    ? 'max_completion_tokens'
+    : 'max_tokens';
 }
 
 // =============================================================================
@@ -1455,4 +1453,3 @@ export async function callLLMWithTools(
   );
   return result;
 }
-

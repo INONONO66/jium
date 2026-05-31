@@ -196849,85 +196849,83 @@ var init_llm_router = __esm({
         const { default: OpenAISDK } = await import('openai');
         return new OpenAISDK({
           apiKey: process.env.OPENAI_API_KEY,
-          ...process.env.OPENAI_BASE_URL ? { baseURL: process.env.OPENAI_BASE_URL } : {}
+          ...process.env.OPENAI_BASE_URL || process.env.BASE_URL ? { baseURL: process.env.OPENAI_BASE_URL ?? process.env.BASE_URL } : {}
         });
       }
       async callText(model, systemPrompt, userPrompt, maxTokens) {
         const client = await this.getClient();
         const response = await this.apiCall(
-          () => client.responses.create({
+          () => client.chat.completions.create({
             model: this.resolveModel(model),
-            instructions: systemPrompt,
-            input: [{ role: "user", content: userPrompt }],
-            ...maxTokens && { max_output_tokens: maxTokens }
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: userPrompt }
+            ],
+            ...maxTokens && { [selectOpenAIMaxTokensField(model)]: maxTokens }
           })
         );
-        let text = "";
-        for (const item of response.output) {
-          if (item.type === "message") {
-            for (const part of item.content) {
-              if (part.type === "output_text") text += part.text;
-            }
-          }
-        }
         return {
-          text,
-          inputTokens: response.usage?.input_tokens ?? 0,
-          outputTokens: response.usage?.output_tokens ?? 0
+          text: response.choices[0]?.message.content ?? "",
+          inputTokens: response.usage?.prompt_tokens ?? 0,
+          outputTokens: response.usage?.completion_tokens ?? 0
         };
       }
       async callTools(model, systemPrompt, userPrompt, tools, toolChoice = "required", _scopedTools) {
         const client = await this.getClient();
         const openaiTools = tools.map((t3) => ({
           type: "function",
-          name: t3.name,
-          description: t3.description,
-          parameters: addStrictSchemaConstraints(t3.parameters),
-          strict: true
-        }));
-        const pending = this.pendingToolResults;
+            function: {
+              name: t3.name,
+              description: t3.description,
+              parameters: addStrictSchemaConstraints(t3.parameters),
+              strict: false
+            }
+          }));
+        if (this.sessionMessages.length === 0) {
+          this.sessionMessages.push({ role: "system", content: systemPrompt });
+        }
+        this.sessionMessages.push(...this.pendingToolResults);
         this.pendingToolResults = [];
-        const input2 = pending.length > 0 ? [...pending, { role: "user", content: userPrompt }] : [{ role: "user", content: userPrompt }];
+        this.sessionMessages.push({ role: "user", content: userPrompt });
         const response = await this.apiCall(
-          () => client.responses.create({
+          () => client.chat.completions.create({
             model: this.resolveModel(model),
-            instructions: systemPrompt,
-            input: input2,
+            messages: this.sessionMessages,
             tools: openaiTools,
-            tool_choice: toolChoice,
-            store: true,
-            // Enable response storage + server-side chaining
-            ...this.lastSessionId && { previous_response_id: this.lastSessionId }
+            tool_choice: toolChoice
           })
         );
-        this.lastSessionId = response.id;
-        const usage2 = response.usage;
-        if (usage2) {
-          const cached = usage2.input_tokens_details;
-          if (cached?.cached_tokens) {
-            console.log(`[openai] session ${this.lastSessionId ? "chained" : "new"}: ${cached.cached_tokens} cached of ${usage2.input_tokens} input`);
-          }
+        const message = response.choices[0]?.message;
+        const functionCalls = (message?.tool_calls ?? []).filter(
+          (fc) => fc.type === "function"
+        ).slice(0, 1);
+        if (message) {
+          this.sessionMessages.push(
+            message.tool_calls !== void 0 ? { ...message, tool_calls: functionCalls } : message
+          );
         }
-        const functionCalls = response.output.filter(
-          (o) => o.type === "function_call"
-        );
         return {
           toolCalls: functionCalls.map((fc) => ({
-            id: fc.call_id,
-            name: fc.name,
-            input: JSON.parse(fc.arguments ?? "{}")
+            id: fc.id,
+            name: fc.function.name,
+            input: JSON.parse(fc.function.arguments || "{}")
           })),
-          inputTokens: response.usage?.input_tokens ?? 0,
-          outputTokens: response.usage?.output_tokens ?? 0
+          inputTokens: response.usage?.prompt_tokens ?? 0,
+          outputTokens: response.usage?.completion_tokens ?? 0
         };
       }
-      // Pending tool results — stored by sendToolResult, consumed by next callTools
+      sessionMessages = [];
       pendingToolResults = [];
+      resetSession() {
+        super.resetSession();
+        this.sessionMessages = [];
+        this.pendingToolResults = [];
+      }
       async sendToolResult(results) {
         this.pendingToolResults = results.map((r2) => ({
-          type: "function_call_output",
-          call_id: r2.callId ?? "",
-          output: r2.result
+          role: "tool",
+          tool_call_id: r2.callId ?? "",
+          content: r2.result
         }));
       }
       async callWithTools(model, systemPrompt, userPrompt, tools, maxTurns) {
