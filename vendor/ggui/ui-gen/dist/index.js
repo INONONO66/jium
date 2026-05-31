@@ -196933,12 +196933,15 @@ var init_llm_router = __esm({
         const resolvedModel = this.resolveModel(model);
         const openaiTools = tools.map((t3) => ({
           type: "function",
-          name: t3.name,
-          description: t3.description,
-          parameters: t3.parameters,
-          strict: false
+          function: {
+            name: t3.name,
+            description: t3.description,
+            parameters: t3.parameters,
+            strict: false
+          }
         }));
-        let input2 = [
+        const messages = [
+          { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt }
         ];
         let totalIn = 0;
